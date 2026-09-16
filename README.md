@@ -76,7 +76,13 @@ git clone https://github.com/ionaei/gnn-for-dementia
 cd gnn-for-dementia
 
 # 1. Create environment and install dependencies (see the "Environment note" below before doing this
-#    if you plan to run bert_models/ as well as gnn/)
+# 1a. .venv environment (if conda not installed). If you run 1a, dont run 1b and vice versa.
+python3 -m venv .venv
+source .venv/bin/activate      # on Windows: .venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# 1b.   if you want to use conda environment
 conda create -n dementia_gnn python=3.11.9
 conda activate dementia_gnn
 pip install -r requirements.txt
