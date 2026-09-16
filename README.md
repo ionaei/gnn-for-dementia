@@ -8,7 +8,7 @@ This package reconstructs a clean, runnable, and documented version of the codeb
 ## What's in this package
 
 | Module | Paper method(s) | 
-|---|---|---|
+|---|---|
 | `data_prep/` | Data schema + synthetic data generator |
 | `baselines/` | XGBoost, Random Forest (Table 1 "XGBoost" row) | 
 | `bert_models/` | BioClinical BERT pure, Multimodal BioClinical BERT+MLP, + 2 ablations (no-temporal, RoBERTa) | 
