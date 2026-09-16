@@ -126,7 +126,7 @@ This package's development environment is pinned to `torch==2.1.2` (aarch64 hard
 
 `requirements.txt` (and `bert_models/requirements.txt`) pin `transformers` to `>=4.30.0,<=4.40.0` accordingly. If you upgrade `torch` to `>=2.5.0` in your own environment, this ceiling can be lifted. `gnn/`, `explainability/`, and `risk_stratification/` (which depend on `torch_geometric`, not `transformers`) are unaffected by this and were fully re-run end-to-end against `torch==2.1.2` + `torch_geometric==2.8.0` while preparing this package (see the Quickstart above).
 
-## Results (published Table 1, from `../NeurIPS_poster.pdf`)
+## Paper Results 
 
 For reference — these are the paper's actual published numbers on real UK Biobank data, **not** reproducible from the synthetic smoke-test data in this package:
 
