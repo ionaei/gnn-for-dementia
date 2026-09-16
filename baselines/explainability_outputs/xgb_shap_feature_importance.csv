@@ -1,0 +1,65 @@
+feature,mean_abs_shap
+Age,0.14608253484663908
+Injury of nerves and spinal cord_time,0.0336350408215002
+Diseases of the ear and mastoid process_time,0.028838038694478763
+Neoplasms of uncertain or unknown behaviour_time,0.01905881282727862
+"Complications of surgical and medical care, not elsewhere classified_time",0.0160604640801223
+Other degenerative diseases of the nervous system_time,0.011810117112535701
+Disorders of other endocrine glands_present,0.011614209859694621
+Noninfective enteritis and colitis_time,0.010747012726512588
+Mood [affective] disorders_time,0.00892775201845413
+Behavioural syndromes associated with physiological disturbances and physical factors_present,0.008873853812835668
+Disorders of choroid and retina_present,0.00830123452519881
+Glomerular diseases_present,0.007201034486993047
+Inflammatory diseases of female pelvic organs_time,0.005444227351474957
+Congenital malformations of the digestive system_present,0.005016624574577229
+"Schizophrenia, schizotypal and delusional disorders_time",0.004960246228109801
+Symptoms and signs involving the digestive system and abdomen_present,0.0039759302055228955
+Fracture involving multiple regions of lower limb_time,0.0038905116209327793
+Other disorders of the nervous system_time,0.0037700534718597785
+Malignant neoplasm of breast_time,0.0037417242447581175
+"Diseases of arteries, arterioles and capillaries_time",0.0035315142084359754
+"Dislocation, sprain and strain of joints and ligaments_time",0.0032876753329715105
+Dermatitis and eczema_time,0.0030989140468853605
+"Complications of pregnancy, childbirth and the puerperium_time",0.0029523388515555315
+Soft tissue disorders_present,0.002923082768864338
+Malignant neoplasm of male genital organs_time,0.002722895996530343
+Mental retardation_time,0.0024223504440850107
+Malignant neoplasm of respiratory and intrathoracic organs_present,0.0021685728092112307
+Malignant neoplasm of digestive organs_time,0.0019216716910897189
+Ischaemic heart diseases_time,0.0017121285276289512
+Malignant neoplasm of male genital organs_present,0.0017089439447829154
+Open wound_time,0.0016484678256355502
+Burns and corrosions_time,0.0013000132727475802
+"Symptoms, signs and abnormal clinical and laboratory findings, not elsewhere classified_time",0.0010268903010564804
+Diseases of liver_time,0.0008088124379053539
+Malignant neoplasm of digestive organs_present,0.00011425086373666125
+Other diseases of upper respiratory tract_time,4.491015327223092e-05
+"Disorders of fluid, electrolyte and acid-base balance_present",3.222935980856911e-05
+"Chromosomal abnormalities, not elsewhere classified_present",2.839942923133498e-05
+Cerebrovascular diseases_present,1.913290813580072e-05
+"Schizophrenia, schizotypal and delusional disorders_present",0.0
+Dermatitis and eczema_present,0.0
+Other diseases of the respiratory system_time,0.0
+Sleep disorders_present,0.0
+Persons encountering health services in other circumstances_time,0.0
+Papulosquamous disorders_time,0.0
+Disorders of breast_time,0.0
+Other disorders of kidney and ureter_time,0.0
+Diseases of male genital organs_time,0.0
+Polyneuropathies and other disorders of the peripheral nervous system_time,0.0
+Fracture of forearm_present,0.0
+Acute upper respiratory infections_time,0.0
+Osteopathies and chondropathies_time,0.0
+Cardiac arrhythmias_time,0.0
+Metabolic disorders_present,0.0
+Disorders of nails and hair_time,0.0
+Disorders of psychological development_time,0.0
+Dorsopathies_time,0.0
+Fracture involving multiple regions of lower limb_present,0.0
+Ischaemic heart diseases_present,0.0
+Certain conditions originating in the perinatal period_time,0.0
+"Abnormal findings on examination of other body fluids, without diagnosis_present",0.0
+Infections of the skin and subcutaneous tissue_present,0.0
+Heart failure_present,0.0
+Systemic connective tissue disorders_time,0.0
