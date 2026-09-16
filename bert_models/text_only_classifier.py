@@ -117,9 +117,18 @@ def train_and_evaluate(
     # Load data
     if data_path is None:
         print("No data path provided; generating synthetic data...")
-        from generate_synthetic_data import generate_synthetic_data
+        # NOTE: this used to call a `generate_synthetic_data(path, n_patients=...)`
+        # function that does not exist anywhere in this repo (data_prep only
+        # exposes `generate_synthetic_cohort(n_patients, rng) -> DataFrame`),
+        # so this fallback previously raised ImportError the moment someone
+        # ran this script without --data-path. Fixed to call the real API.
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "data_prep"))
+        from generate_synthetic_data import generate_synthetic_cohort
+        import numpy as np
         data_path = "/tmp/synthetic_dementia.csv"
-        generate_synthetic_data(data_path, n_patients=60)
+        generate_synthetic_cohort(60, np.random.default_rng(42)).to_csv(data_path, index=False)
 
     df = pd.read_csv(data_path)
     print(f"Loaded {len(df)} samples from {data_path}")

@@ -395,6 +395,15 @@ def main():
         default=42,
         help="Random seed.",
     )
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=str,
+        default="checkpoints",
+        help="Directory to save trained models, scaler, and metrics "
+             "(mirrors the --checkpoint-dir flag on explain_shap.py, added "
+             "so callers -- e.g. a Docker entrypoint writing to a mounted "
+             "output volume -- can redirect it without editing this file).",
+    )
 
     args = parser.parse_args()
 
@@ -408,7 +417,7 @@ def main():
             use_wandb = False
 
     # Ensure checkpoints directory exists
-    checkpoint_dir = Path("checkpoints")
+    checkpoint_dir = Path(args.checkpoint_dir)
     checkpoint_dir.mkdir(exist_ok=True, parents=True)
 
     # Load data

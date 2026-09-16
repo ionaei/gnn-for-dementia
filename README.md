@@ -33,6 +33,8 @@ To reproduce the paper's actual numbers, apply for UK Biobank access (applicatio
 ```
 reproducibility_package/
 ├── README.md                      <- this file
+├── DOCKER.md                       <- Docker build/run instructions + what was and wasn't verified
+├── Dockerfile, .dockerignore, entrypoint.sh  <- container definition (see DOCKER.md)
 ├── requirements.txt                <- union of all module dependencies
 ├── data_prep/                      <- schema docs + synthetic data generator
 │   ├── SCHEMA.md
@@ -50,8 +52,8 @@ reproducibility_package/
 │   ├── multimodal_classifier.py    <- headline method
 │   ├── text_only_classifier.py     <- "BioClinical BERT pure"
 │   ├── bioclinical_no_temporal.py  <- ablation
-│   ├── roberta_classifier.py       <- ablation
-│   └── NOTEBOOK_ANALYSIS.md        <- per-notebook findings + provenance
+│   └── roberta_classifier.py       <- ablation
+│       (per-notebook findings + provenance are in bert_models/README.md)
 ├── gnn/                             <- star-graph GINEConv GNN (paper's best method)
 │   ├── graph_construction.py, model.py, sweep_config.py
 │   ├── code_embeddings_bert.py     
@@ -66,6 +68,26 @@ reproducibility_package/
 ```
 
 Each module directory has its own `README.md` with method-specific detail, usage examples, exact hyperparameters, and known caveats. This top-level README is the map; the module READMEs are the territory.
+
+## Running in Docker
+
+The whole package (baselines, GNN, BERT models, explainability, risk
+stratification) can also be run from a single Docker image with no local
+Python setup required:
+
+```bash
+docker build -t dementia-repro .
+docker run --rm -v /path/to/data:/data -v /path/to/output:/output \
+    dementia-repro baselines-train --data-path /data/your_file.csv --model both
+```
+
+No trained model weights are baked into the image — every checkpoint is
+produced fresh at runtime and written to the output volume you mount in.
+The Random Forest / XGBoost path (`baselines-train`) is the one confirmed to
+run a full train → test → predict cycle this way; see **`DOCKER.md`** for
+the complete command reference, what was and wasn't verified (no Docker
+daemon was available while authoring this container), and the couple of
+real bugs that verification turned up and fixed.
 
 ## Quickstart
 

@@ -1,0 +1,40 @@
+# Keep the image code-only: no trained weights, no generated outputs, no
+# local dev cruft. Every one of these directories/files is recreated at
+# container *runtime* by entrypoint.sh, written to the mounted -v .../output
+# volume -- see DOCKER.md.
+
+.git
+.gitignore
+.gitattributes
+
+# Existing local checkpoints / trained model artifacts -- must NOT be baked
+# into the image (this was an explicit requirement: no pre-trained weights).
+baselines/checkpoints/
+baselines/explainability_outputs/
+gnn/checkpoints_gnn/
+bert_models/checkpoints/
+checkpoints/
+
+# Generated reports from local verification runs.
+risk_stratification/stratification_report.json
+
+# Local synthetic data copies already sitting in the repo (the image
+# generates its own via `generate-data` / the scripts' own synthetic
+# fallback; real data is always supplied at runtime via -v .../data).
+baselines/five_updated_synthetic.csv
+data_prep/five_updated_synthetic.csv
+
+# Python / editor / OS cruft.
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.pytest_cache/
+.DS_Store
+*.egg-info/
+
+# WandB local run cache (all scripts support --no-wandb).
+wandb/
+
+# Docker build context hygiene.
+Dockerfile
+.dockerignore
