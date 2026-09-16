@@ -70,8 +70,14 @@ Each module directory has its own `README.md` with method-specific detail, usage
 ## Quickstart
 
 ```bash
-# 1. Install dependencies (see the "Environment note" below before doing this
+# 0. Clone repository
+git clone https://github.com/ionaei/gnn-for-dementia
+cd gnn-for-dementia
+
+# 1. Create environment and install dependencies (see the "Environment note" below before doing this
 #    if you plan to run bert_models/ as well as gnn/)
+conda create -n dementia_gnn python=3.11.9
+conda activate dementia_gnn
 pip install -r requirements.txt
 
 # 2. Generate synthetic data for smoke-testing every module
