@@ -59,6 +59,7 @@ from tqdm import tqdm
 from checkpoint_utils import load_checkpoint, wrap_checkpoint
 from graph_construction import build_code_vocab, build_graphs, make_random_code_embeddings
 from model import PatientICDGNN_BioBERT
+from seed_utils import set_seed
 from sweep_config import SWEEP_CONFIG
 
 
@@ -177,13 +178,22 @@ def _checkpoint_config(cfg, emb_dim, num_codes, head="linear"):
 
 
 def train_one_config(cfg, train_graphs, val_graphs, test_graphs, codes, device, mixed_precision,
-                      ckpt_dir, use_wandb, run=None):
+                      ckpt_dir, use_wandb, run=None, seed=42):
     """
     Core training loop for one hyperparameter configuration. This is the
     body of the original `train_sweep()`, factored out so it can be called
     either from a WandB sweep agent (`main(sweep=True)`) or directly with a
     fixed config (`main(sweep=False)`, e.g. for smoke tests).
+
+    `seed` is (re)applied here, not just once in `main()`, so that every
+    individual run -- including each trial of a `--sweep`, which calls this
+    function repeatedly in the same process -- gets a deterministic model
+    init / code-embedding init / dropout / batch-shuffle order for its own
+    hyperparameters. See `seed_utils.set_seed` for what this does and does
+    not cover (the pooling-mismatch fix elsewhere in this file addresses a
+    separate, unrelated bug).
     """
+    set_seed(seed)
     os.makedirs(ckpt_dir, exist_ok=True)
 
     train_loader = DataLoader(train_graphs, batch_size=cfg["batch_size"], shuffle=True)
@@ -338,6 +348,12 @@ def main():
     mixed_precision = torch.cuda.is_available()
     print(f"Using device: {device} (mixed precision: {mixed_precision})")
 
+    # Seed here too (defensive/cheap -- covers anything before the first
+    # train_one_config() call, e.g. build_graphs()'s own randomness, if any
+    # is ever added). train_one_config() re-applies this per run/trial;
+    # see seed_utils.set_seed's docstring for why both call sites matter.
+    set_seed(args.seed)
+
     df_train, df_val, df_test = load_and_split(args.data_path, seed=args.seed)
     codes, code2idx, desc_to_time, code_texts = build_code_vocab(df_train)
     print(f"{len(codes)} diagnosis codes; train/val/test = {len(df_train)}/{len(df_val)}/{len(df_test)}")
@@ -357,7 +373,8 @@ def main():
             with wandb.init() as run:
                 cfg = dict(wandb.config)
                 train_one_config(cfg, train_graphs, val_graphs, test_graphs, codes, device,
-                                  mixed_precision, args.checkpoint_dir, use_wandb=True, run=run)
+                                  mixed_precision, args.checkpoint_dir, use_wandb=True, run=run,
+                                  seed=args.seed)
 
         sweep_id = wandb.sweep(SWEEP_CONFIG, project=args.wandb_project)
         wandb.agent(sweep_id, function=_sweep_entry, count=args.sweep_count)
@@ -377,7 +394,7 @@ def main():
 
     ckpt_path, metrics = train_one_config(
         cfg, train_graphs, val_graphs, test_graphs, codes, device, mixed_precision,
-        args.checkpoint_dir, use_wandb=use_wandb, run=run,
+        args.checkpoint_dir, use_wandb=use_wandb, run=run, seed=args.seed,
     )
     print(f"Done. Best checkpoint: {ckpt_path}")
     print(metrics)

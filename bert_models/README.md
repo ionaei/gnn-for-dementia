@@ -11,6 +11,8 @@ This directory contains clean, reproducible implementations of all BERT-based me
   - `apply_icd10_sequences()` — Apply to entire dataframe
   - Supports ablation via `include_temporal` and `include_demographics` flags
 
+- **`seed_utils.py`** — `set_seed(seed)`: seeds Python's `random`, NumPy, and PyTorch (CPU+CUDA) before training. Fixes a real bug: none of these 4 scripts seeded anything beyond the (already-fixed, `random_state=42`) train/val/test split, so the classification head `AutoModelForSequenceClassification.from_pretrained(..., num_labels=2)` randomly initializes, `Dropout`, and the training `DataLoader(..., shuffle=True)`'s batch order all drew from unseeded global RNGs — identical CLI args gave different metrics run to run. All 4 scripts now take a `--seed` argument (default `42`) and call `set_seed(seed)` before building the model or any `DataLoader`.
+
 ---
 
 ### Paper Methods
@@ -240,6 +242,8 @@ Note: actual performance depends on real data size, cohort composition, and exac
    - **Specificity** = Recall of class 1 (Control) = TN / (TN + FP)
 
 7. **Early Stopping:** Implemented via saving best checkpoint based on validation loss, not an explicit EarlyStopping callback. Training runs for full epoch count unless manually interrupted.
+
+8. **Determinism (fixed):** All 4 scripts now accept `--seed` (default `42`) and call `seed_utils.set_seed()` before model/DataLoader construction, so repeated runs with identical CLI args give identical metrics on CPU. This was verified against the underlying mechanism (random classification-head init + `DataLoader` shuffle order + `Dropout`, all bit-identical across runs under the same seed) using a locally-constructed, un-pretrained BERT config — this environment had no network access to Hugging Face Hub to re-verify end-to-end against the real `Bio_ClinicalBERT`/`roberta-large` checkpoints, but the fix uses the exact same `torch.manual_seed`-based mechanism already verified end-to-end in `gnn/train.py` (see top-level README's "Reproducibility" section). GPU (CUDA) runs remain best-effort, not guaranteed bit-identical, per the note in `seed_utils.py`.
 
 ---
 

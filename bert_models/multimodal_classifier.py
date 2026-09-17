@@ -40,6 +40,7 @@ except ImportError:
     WANDB_AVAILABLE = False
 
 from sequence_builder import apply_icd10_sequences
+from seed_utils import set_seed
 
 
 class DementiaDataset(Dataset):
@@ -175,8 +176,15 @@ def train_and_evaluate(
     learning_rate: float = 2e-5,
     use_wandb: bool = True,
     checkpoint_dir: str = "./checkpoints",
+    seed: int = 42,
 ):
     """Train and evaluate the multimodal classifier."""
+    # Seed before anything model/DataLoader-related draws from the global
+    # RNGs (random classification head + demographics-MLP init, DataLoader
+    # shuffle, Dropout). See seed_utils.set_seed / bert_models/README for
+    # the reproducibility bug this fixes.
+    set_seed(seed)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
@@ -395,6 +403,11 @@ if __name__ == "__main__":
         "--checkpoint-dir", type=str, default="./checkpoints",
         help="Directory to save model checkpoints."
     )
+    parser.add_argument(
+        "--seed", type=int, default=42,
+        help="Random seed for model init / dropout / batch shuffling "
+             "(the train/val/test split is already fixed at random_state=42).",
+    )
 
     args = parser.parse_args()
 
@@ -405,4 +418,5 @@ if __name__ == "__main__":
         learning_rate=args.learning_rate,
         use_wandb=not args.no_wandb,
         checkpoint_dir=args.checkpoint_dir,
+        seed=args.seed,
     )

@@ -41,6 +41,7 @@ except ImportError:
     WANDB_AVAILABLE = False
 
 from sequence_builder import apply_icd10_sequences
+from seed_utils import set_seed
 
 
 class TextOnlyDementiaDataset(Dataset):
@@ -113,8 +114,15 @@ def train_and_evaluate(
     use_wandb: bool = True,
     checkpoint_dir: str = "./checkpoints",
     max_grad_norm: float = 1.0,
+    seed: int = 42,
 ):
     """Train and evaluate BioClinicalBERT WITHOUT temporal information."""
+    # Seed before anything model/DataLoader-related draws from the global
+    # RNGs (random classification head init, DataLoader shuffle, Dropout).
+    # See seed_utils.set_seed / bert_models/README for the reproducibility
+    # bug this fixes.
+    set_seed(seed)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     print("ABLATION: Running BioClinicalBERT WITHOUT temporal information")
@@ -348,6 +356,11 @@ if __name__ == "__main__":
         "--max-grad-norm", type=float, default=1.0,
         help="Maximum gradient norm for clipping."
     )
+    parser.add_argument(
+        "--seed", type=int, default=42,
+        help="Random seed for model init / dropout / batch shuffling "
+             "(the train/val/test split is already fixed at random_state=42).",
+    )
 
     args = parser.parse_args()
 
@@ -359,4 +372,5 @@ if __name__ == "__main__":
         use_wandb=not args.no_wandb,
         checkpoint_dir=args.checkpoint_dir,
         max_grad_norm=args.max_grad_norm,
+        seed=args.seed,
     )

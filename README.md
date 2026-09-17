@@ -47,6 +47,7 @@ reproducibility_package/
 │   └── checkpoints/, explainability_outputs/  <- produced by running the scripts
 ├── bert_models/                    <- 4 consolidated BERT-family scripts
 │   ├── sequence_builder.py
+│   ├── seed_utils.py               <- set_seed(): makes runs with the same --seed reproducible
 │   ├── multimodal_classifier.py    <- headline method
 │   ├── text_only_classifier.py     <- "BioClinical BERT pure"
 │   ├── bioclinical_no_temporal.py  <- ablation
@@ -56,6 +57,7 @@ reproducibility_package/
 │   ├── graph_construction.py, model.py, sweep_config.py
 │   ├── code_embeddings_bert.py     
 │   ├── checkpoint_utils.py         <- shared checkpoint save/load, embeds pool/hidden/emb_dim/head
+│   ├── seed_utils.py               <- set_seed(): makes runs with the same --seed reproducible
 │   ├── train.py, evaluate_best_run.py
 │   └── checkpoints_gnn/            <- produced by running train.py
 ├── explainability/                  <- gradient / guided-backprop GNN explainability

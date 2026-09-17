@@ -37,7 +37,6 @@ python run_stratification.py \
 
 Must be run from within `risk_stratification/` (or otherwise have `../gnn` on `sys.path`) so the relative import of the GNN modules (`checkpoint_utils`, `evaluate_best_run`, `graph_construction`, `model`, `train`) resolves.
 
-**Pooling note (fixed — previously a silent bug):** `PatientICDGNN_BioBERT`'s pooling (`mean`/`add`/`max`) has no learnable parameters, so it leaves no trace in a raw `state_dict` — it cannot be recovered from checkpoint weights alone. This script used to default `--pool` to `"add"` (matching the original `traffic_light.ipynb`'s one specific run) while `gnn/train.py` and `evaluate_best_run.py` both defaulted to `"mean"` — following the top-level README's own quickstart literally, a checkpoint trained with the `train.py` default (`mean`) would silently get evaluated here with `add` instead, with no error, just wrong metrics. `gnn/train.py` now embeds `pool` (and `hidden`/`emb_dim`/`dropout`/`head`) directly in the checkpoint file via `gnn/checkpoint_utils.py`, and this script reads that automatically, so the two scripts can no longer silently disagree. `--pool`/`--hidden`/`--emb-dim`/`--head` are still available as overrides — pass them explicitly only if you're evaluating an older checkpoint saved before this fix (a bare state_dict with no embedded config), in which case a loud `UserWarning` fires if `--pool` is omitted and the pooling can't be determined any other way.
 
 ## Output
 
