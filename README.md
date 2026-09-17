@@ -3,6 +3,8 @@
 Iona Biggart, Antigone Fogel, Payam Barnaghi — Imperial College London / UK Dementia Research Institute
 NeurIPS 2025 Workshop on Time Series for Health (TS4H)
 
+Paper: [openreview.net/forum?id=2FfRHgVSx3](https://openreview.net/forum?id=2FfRHgVSx3)
+
 This package reconstructs a clean, runnable, and documented version of the codebase behind the paper. 
 
 ## What's in this package
@@ -202,7 +204,7 @@ Sensitivity = recall for the Dementia class (label 0); Specificity = recall for 
 
 If you use this code, please cite:
 
-> Biggart, I., Fogel, A., Barnaghi, P. "Predicting Dementia Risk Using Longitudinal Electronic Health Records Data." NeurIPS 2025 Workshop on Time Series for Health (TS4H).
+> Biggart, I., Fogel, A., Barnaghi, P. "Predicting Dementia Risk Using Longitudinal Electronic Health Records Data." NeurIPS 2025 Workshop on Time Series for Health (TS4H). https://openreview.net/forum?id=2FfRHgVSx3
 
 ## Contact
 
