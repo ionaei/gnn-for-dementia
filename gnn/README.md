@@ -18,7 +18,8 @@ The model runs 2 layers of `GINEConv` message passing over this graph, pools nod
 - **`code_embeddings_bert.py`** — Builds the "BioClinical" code-embedding variant by mean-pooling BioClinicalBERT token embeddings of each diagnosis block's text.
 - **`model.py`** — `PatientICDGNN_BioBERT`, the GINEConv model itself, merging two near-duplicate class definitions found across `neurips_ad_graphs.ipynb` (linear head, tuned pooling — the paper's best config) and `traffic_light.ipynb` (MLP head, pooling hardcoded to `"add"` — the GNN+MLP ablation) into one class with a `head` argument.
 - **`sweep_config.py`** — The WandB Bayesian hyperparameter search space, recovered verbatim from `neurips_ad_graphs.ipynb` cell 13 (matches the paper's Appendix A2).
-- **`train.py`** — CLI training script: loads data, builds graphs, and either runs a single fixed-hyperparameter training run (`--no-wandb`, for smoke-testing) or launches the real WandB Bayesian sweep (`--sweep`). Preserves the original optimizer param groups (separate LR for decay/no-decay/embedding params), mixed-precision training, linear warmup+decay LR schedule, gradient clipping, and early-stopping-on-val-loss logic.
+- **`train.py`** — CLI training script: loads data, builds graphs, and either runs a single fixed-hyperparameter training run (`--no-wandb`, for smoke-testing) or launches the real WandB Bayesian sweep (`--sweep`). Preserves the original optimizer param groups (separate LR for decay/no-decay/embedding params), mixed-precision training, linear warmup+decay LR schedule, gradient clipping, and early-stopping-on-val-loss logic. Saves checkpoints via `checkpoint_utils.wrap_checkpoint()` (see below) so every hyperparameter needed to reload the model is recorded alongside the weights.
+- **`checkpoint_utils.py`** — Shared checkpoint (de)serialization helpers, used by `train.py` (saving), `evaluate_best_run.py`, and `risk_stratification/run_stratification.py` (loading). Exists to fix a real bug: `PatientICDGNN_BioBERT`'s pooling (`mean`/`add`/`max`) has no learnable parameters, so it leaves **no trace in a raw state_dict** — a checkpoint loads without error under the wrong pooling, it just silently predicts something else. `train.py` now saves `{"state_dict": ..., "config": {hidden, emb_dim, num_codes, dropout, train_eps, pool, head, trainable}}`; `load_checkpoint()` reads that back automatically, with backward-compatible support for older bare-state-dict checkpoints (falls back to caller-supplied CLI args, warning loudly if `pool` specifically can't be determined either way).
 - **`evaluate_best_run.py`** — Loads a trained checkpoint (either the best run of a WandB sweep, or a local `--no-wandb` checkpoint) and evaluates it on the held-out test set. This fixes two bugs (a stray typo and an undefined function call) that meant the original notebook cell this was ported from (`neurips_ad_graphs.ipynb` cell 20) could never actually run.
 
 ## Usage
@@ -32,15 +33,20 @@ python train.py --data-path ../data_prep/five_updated_synthetic.csv \
     --no-wandb --epochs 3 --hidden 32 --emb-dim 32 --batch-size 16 \
     --checkpoint-dir checkpoints_gnn
 
-# 3. Evaluate the resulting local checkpoint
+# 3. Evaluate the resulting local checkpoint -- hidden/emb-dim/pool/head are read
+# automatically from the checkpoint's embedded config, no need to repeat them here
 python evaluate_best_run.py --local-checkpoint checkpoints_gnn/best_local.pt \
-    --data-path ../data_prep/five_updated_synthetic.csv --hidden 32 --emb-dim 32
+    --data-path ../data_prep/five_updated_synthetic.csv
 
 # 4. Real Bayesian hyperparameter sweep (requires `wandb login` and real data)
 python train.py --data-path /path/to/five_updated.csv --sweep --sweep-count 30
 ```
 
-`checkpoints_gnn/best_local.pt` in this directory is a checkpoint produced by an actual `--no-wandb` smoke-test run on synthetic data during development of this package — it proves the training loop runs end-to-end, but (like all synthetic-data results in this package) its metrics are not meaningful and should not be compared against Table 1.
+`checkpoints_gnn/best_local.pt` in this directory is a checkpoint produced by an actual `--no-wandb` smoke-test run on synthetic data during development of this package (regenerated with the exact command in step 2 above after the checkpoint-config-embedding fix below) — it proves the training loop runs end-to-end, but (like all synthetic-data results in this package) its metrics are not meaningful and should not be compared against Table 1.
+
+## Checkpoint format / pooling-mismatch fix
+
+Earlier versions of this package saved a bare `model.state_dict()` and had `evaluate_best_run.py` and `risk_stratification/run_stratification.py` each guess the training-time hyperparameters from their own `--pool`/`--hidden`/`--emb-dim` CLI *defaults* -- which disagreed with each other (`train.py`/`evaluate_best_run.py` defaulted `--pool` to `"mean"`, `run_stratification.py` defaulted it to `"add"`). Since pooling has no learnable weights, a checkpoint loaded with the wrong pooling produces no error at all, just silently wrong predictions. `train.py` now embeds the full model config in every checkpoint it saves (see `checkpoint_utils.py` above), and both downstream scripts read it back automatically, so `--pool`/`--hidden`/`--emb-dim`/`--head` are now optional overrides rather than required (and easy-to-forget) inputs. Older, pre-fix checkpoints are still supported: `load_checkpoint()` falls back to CLI args for them and raises a `UserWarning` defaulting `pool` to `"mean"` if it truly cannot be determined -- pass `--pool` explicitly if you know how such an older checkpoint was actually trained.
 
 ## Data split
 

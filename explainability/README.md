@@ -32,6 +32,30 @@ The paper employs two gradient-based explainability methods to understand which 
   - Tests gradient and guided backprop explainers end-to-end
   - Confirms top-k diagnosis extraction works
   - **Run with:** `python3 test_explainers.py`
+  - This only ever exercises synthetic, in-memory graphs -- it does not touch real/held-out patient data, and produces no output files. Use `explain.py` (below) for that.
+
+### Command-line interface
+
+- **`explain.py`** — CLI that loads a trained checkpoint, loads a pickled list of `torch_geometric.data.Data` graphs, runs one of the two explainers over them, and writes a JSON report. This is the only way in this package to get explanations for **real patient graphs** (as opposed to `test_explainers.py`'s synthetic smoke-test graphs).
+
+  ```
+  python3 explain.py --model <checkpoint.pt> --graphs <graphs.pkl> --method gradient --output results.json
+  python3 explain.py --model <checkpoint.pt> --graphs <graphs.pkl> --method guided_bp --output results.json
+  ```
+
+  **Where does `<graphs.pkl>` come from?** Nothing else in this package used to produce one -- `explain.py --graphs` requires a pre-pickled graph list, and only `test_explainers.py` ever built graphs (synthetic ones, in memory, never written to disk). `../tools/export_test_graphs.py` fixes this: it reuses the exact same `gnn/train.py:load_and_split()` + `gnn/graph_construction.py:build_graphs()` pipeline used at training time to pickle the held-out test split (or train/val, via `--split`) as a file `explain.py --graphs` can consume:
+
+  ```bash
+  python ../tools/export_test_graphs.py \
+      --data-path ../data_prep/five_updated_synthetic.csv \
+      --out test_graphs.pkl
+  python explain.py --model ../gnn/checkpoints_gnn/best_local.pt \
+      --graphs test_graphs.pkl --method gradient --output gradient_results.json
+  ```
+
+  This only produces meaningful diagnosis-code vocabulary alignment if `export_test_graphs.py` is run with the **same `--data-path` and `--seed`** as the checkpoint's training run (both default to the same values `gnn/train.py` does, so this lines up automatically for the default synthetic-data workflow).
+
+  **Pooling, again:** `--pool`/`--head` here work exactly like in `evaluate_best_run.py`/`run_stratification.py` (see `../gnn/README.md`'s "Checkpoint format / pooling-mismatch fix" section) -- checkpoints saved by the current `gnn/train.py` embed their own config, including `pool`, `num_codes`, and `emb_dim` (needed here since `explain.py` doesn't rebuild the code vocabulary from a CSV the way the other two scripts do), so `explain.py` usually needs only `--model`, `--graphs`, `--method`, and `--output`. For an older checkpoint with no embedded config, `load_model()` warns and defaults `pool` to `"mean"` if you don't pass `--pool` explicitly.
 
 ## Model Architecture (for reference)
 

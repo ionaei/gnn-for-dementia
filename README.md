@@ -55,14 +55,17 @@ reproducibility_package/
 ├── gnn/                             <- star-graph GINEConv GNN (paper's best method)
 │   ├── graph_construction.py, model.py, sweep_config.py
 │   ├── code_embeddings_bert.py     
+│   ├── checkpoint_utils.py         <- shared checkpoint save/load, embeds pool/hidden/emb_dim/head
 │   ├── train.py, evaluate_best_run.py
 │   └── checkpoints_gnn/            <- produced by running train.py
 ├── explainability/                  <- gradient / guided-backprop GNN explainability
 │   ├── gradient_explainer.py, guided_backprop_explainer.py, explain.py
 │   └── test_explainers.py
-└── risk_stratification/             <- Youden's J / traffic-light risk banding
-    ├── traffic_light_stratification.py
-    └── run_stratification.py
+├── risk_stratification/             <- Youden's J / traffic-light risk banding
+│   ├── traffic_light_stratification.py
+│   └── run_stratification.py
+└── tools/
+    └── export_test_graphs.py       <- pickles held-out test graphs for explain.py --graphs
 ```
 
 Each module directory has its own `README.md` with method-specific detail, usage examples, exact hyperparameters, and known caveats. This top-level README is the map; the module READMEs are the territory.
@@ -107,13 +110,24 @@ cd ..
 
 # 5. GNN explainability
 cd explainability
-python test_explainers.py
+python test_explainers.py   # synthetic-graph smoke test (no real data needed)
 
-# 6. Risk stratification on the GNN checkpoint from step 4
-cd ../risk_stratification
+# 5b. Explain the actual GNN checkpoint from step 4 against real held-out patients:
+# tools/export_test_graphs.py reuses the same load_and_split + build_graphs path as
+# training, so the exported graphs' code vocabulary matches the checkpoint.
+python ../tools/export_test_graphs.py --data-path ../data_prep/five_updated_synthetic.csv \
+    --out test_graphs.pkl
+python explain.py --model ../gnn/checkpoints_gnn/best_local.pt \
+    --graphs test_graphs.pkl --method gradient --output gradient_results.json
+cd ..
+
+# 6. Risk stratification on the GNN checkpoint from step 4.
+# gnn/train.py embeds hidden/emb-dim/pool/head in the checkpoint itself (see
+# gnn/checkpoint_utils.py), so run_stratification.py picks them up automatically --
+# you don't need to (and shouldn't have to) repeat them here.
+cd risk_stratification
 python run_stratification.py --data-path ../data_prep/five_updated_synthetic.csv \
-    --local-checkpoint ../gnn/checkpoints_gnn/best_local.pt --hidden 32 --emb-dim 32 \
-    --pool mean --head linear
+    --local-checkpoint ../gnn/checkpoints_gnn/best_local.pt
 cd ..
 
 # 7. BERT models (requires internet access to download pretrained weights)

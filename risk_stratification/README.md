@@ -21,12 +21,13 @@ This module implements the paper's post-hoc risk-stratification scheme, which ta
 ## Usage
 
 ```bash
-# Using a local (--no-wandb smoke-test) checkpoint produced by gnn/train.py:
+# Using a local (--no-wandb smoke-test) checkpoint produced by gnn/train.py.
+# Checkpoints saved by the current train.py embed their own hidden/emb-dim/
+# pool/head config, so you normally don't need to pass any of those:
 cd risk_stratification
 python run_stratification.py \
     --data-path ../data_prep/five_updated_synthetic.csv \
-    --local-checkpoint ../gnn/checkpoints_gnn/best_local.pt \
-    --hidden 32 --emb-dim 32 --pool add --head linear
+    --local-checkpoint ../gnn/checkpoints_gnn/best_local.pt
 
 # Using the best run of a real WandB sweep:
 python run_stratification.py \
@@ -34,9 +35,9 @@ python run_stratification.py \
     --wandb-project NEURIPS_UPDATED_AD --checkpoint-dir ../gnn/checkpoints_gnn
 ```
 
-Must be run from within `risk_stratification/` (or otherwise have `../gnn` on `sys.path`) so the relative import of the GNN modules (`evaluate_best_run`, `graph_construction`, `model`, `train`) resolves.
+Must be run from within `risk_stratification/` (or otherwise have `../gnn` on `sys.path`) so the relative import of the GNN modules (`checkpoint_utils`, `evaluate_best_run`, `graph_construction`, `model`, `train`) resolves.
 
-**Pooling note:** the original `traffic_light.ipynb` hardcoded `pool="add"` because that happened to match the specific WandB run it evaluated — it is not necessarily the pooling method your own checkpoint was trained with. `run_stratification.py` exposes `--pool`/`--head` as CLI arguments (defaulting to `add`/`linear` to match the original notebook) rather than silently assuming them; pass the values that match how your checkpoint was actually trained.
+**Pooling note (fixed — previously a silent bug):** `PatientICDGNN_BioBERT`'s pooling (`mean`/`add`/`max`) has no learnable parameters, so it leaves no trace in a raw `state_dict` — it cannot be recovered from checkpoint weights alone. This script used to default `--pool` to `"add"` (matching the original `traffic_light.ipynb`'s one specific run) while `gnn/train.py` and `evaluate_best_run.py` both defaulted to `"mean"` — following the top-level README's own quickstart literally, a checkpoint trained with the `train.py` default (`mean`) would silently get evaluated here with `add` instead, with no error, just wrong metrics. `gnn/train.py` now embeds `pool` (and `hidden`/`emb_dim`/`dropout`/`head`) directly in the checkpoint file via `gnn/checkpoint_utils.py`, and this script reads that automatically, so the two scripts can no longer silently disagree. `--pool`/`--hidden`/`--emb-dim`/`--head` are still available as overrides — pass them explicitly only if you're evaluating an older checkpoint saved before this fix (a bare state_dict with no embedded config), in which case a loud `UserWarning` fires if `--pool` is omitted and the pooling can't be determined any other way.
 
 ## Output
 

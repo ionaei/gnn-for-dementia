@@ -56,6 +56,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
+from checkpoint_utils import load_checkpoint, wrap_checkpoint
 from graph_construction import build_code_vocab, build_graphs, make_random_code_embeddings
 from model import PatientICDGNN_BioBERT
 from sweep_config import SWEEP_CONFIG
@@ -157,6 +158,24 @@ def run_epoch(model, loader, device, optimizer=None, scheduler=None, scaler=None
     return avg_loss, acc, f1, sensitivity, specificity, aupr
 
 
+def _checkpoint_config(cfg, emb_dim, num_codes, head="linear"):
+    """
+    Metadata embedded in every checkpoint this script saves (see
+    `checkpoint_utils.py`), so downstream scripts (`evaluate_best_run.py`,
+    `risk_stratification/run_stratification.py`,
+    `explainability/explain.py`) can rebuild the exact same architecture
+    instead of guessing it from their own CLI-arg defaults -- crucially
+    including `pool`, which has no learnable parameters and therefore
+    leaves no trace in the state_dict itself (the pooling-mismatch bug this
+    module was added to fix).
+    """
+    return dict(
+        hidden=cfg["hidden"], dropout=cfg["dropout"], train_eps=cfg["train_eps"],
+        pool=cfg["pool"], head=head, emb_dim=emb_dim, num_codes=num_codes,
+        trainable=cfg.get("trainable", True),
+    )
+
+
 def train_one_config(cfg, train_graphs, val_graphs, test_graphs, codes, device, mixed_precision,
                       ckpt_dir, use_wandb, run=None):
     """
@@ -249,7 +268,10 @@ def train_one_config(cfg, train_graphs, val_graphs, test_graphs, codes, device, 
         improved = (best_val - va_loss) > min_delta
         if improved:
             best_val, no_improve = va_loss, 0
-            torch.save(model.state_dict(), ckpt_path)
+            torch.save(
+                wrap_checkpoint(model.state_dict(), **_checkpoint_config(cfg, emb_dim, num_codes, head="linear")),
+                ckpt_path,
+            )
             if run is not None:
                 run.summary["best_val_loss"] = best_val
         else:
@@ -259,9 +281,13 @@ def train_one_config(cfg, train_graphs, val_graphs, test_graphs, codes, device, 
                 break
 
     if os.path.exists(ckpt_path):
-        model.load_state_dict(torch.load(ckpt_path, map_location=device))
+        state, _ = load_checkpoint(ckpt_path, device=device)
+        model.load_state_dict(state)
     else:
-        torch.save(model.state_dict(), ckpt_path)
+        torch.save(
+            wrap_checkpoint(model.state_dict(), **_checkpoint_config(cfg, emb_dim, num_codes, head="linear")),
+            ckpt_path,
+        )
 
     te_loss, te_acc, te_f1, te_sens, te_spec, te_auc = run_epoch(
         model, test_loader, device, mixed_precision=mixed_precision, use_wandb=use_wandb

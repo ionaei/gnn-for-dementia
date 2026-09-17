@@ -30,6 +30,7 @@ import torch
 from sklearn.metrics import accuracy_score, average_precision_score, f1_score, recall_score
 from torch_geometric.loader import DataLoader
 
+from checkpoint_utils import load_checkpoint
 from graph_construction import build_code_vocab, build_graphs, make_random_code_embeddings
 from model import build_model_from_cfg
 from train import load_and_split
@@ -81,11 +82,19 @@ def main():
                          help="Skip WandB entirely and just load this checkpoint file directly "
                               "(use this for the --no-wandb smoke-test checkpoints produced by train.py, "
                               "which are saved under run id 'local').")
-    parser.add_argument("--hidden", type=int, default=128, help="Only used with --local-checkpoint (no cfg to read hyperparams from)")
-    parser.add_argument("--emb-dim", type=int, default=128)
-    parser.add_argument("--dropout", type=float, default=0.1)
-    parser.add_argument("--pool", type=str, default="mean", choices=["mean", "add", "max"])
-    parser.add_argument("--head", type=str, default="linear", choices=["linear", "mlp"])
+    parser.add_argument("--hidden", type=int, default=None,
+                         help="Only used with --local-checkpoint if the checkpoint doesn't carry its own "
+                              "embedded config (e.g. an older bare-state-dict checkpoint) -- checkpoints "
+                              "saved by the current train.py record this automatically. Falls back to 128.")
+    parser.add_argument("--emb-dim", type=int, default=None, help="See --hidden; falls back to 128.")
+    parser.add_argument("--dropout", type=float, default=None, help="See --hidden; falls back to 0.1.")
+    parser.add_argument("--pool", type=str, default=None, choices=["mean", "add", "max"],
+                         help="Overrides the checkpoint's embedded pooling strategy. Pooling has no "
+                              "learnable weights, so for a checkpoint saved without embedded config this "
+                              "CANNOT be inferred and matters a lot -- pass this explicitly if you know "
+                              "the run's config, otherwise it falls back to 'mean' with a warning.")
+    parser.add_argument("--head", type=str, default=None, choices=["linear", "mlp"],
+                         help="See --hidden; falls back to 'linear'.")
     args = parser.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -94,10 +103,21 @@ def main():
     codes, code2idx, desc_to_time, code_texts = build_code_vocab(df_train)
     test_graphs = build_graphs(df_test, codes, code2idx, desc_to_time)
 
+    state = None  # loaded here for --local-checkpoint; loaded further down for the WandB path
     if args.local_checkpoint:
         ckpt_path = args.local_checkpoint
-        cfg = dict(hidden=args.hidden, dropout=args.dropout, train_eps=False, pool=args.pool, trainable=True)
-        emb_dim = args.emb_dim
+        state, ckpt_cfg = load_checkpoint(
+            ckpt_path, device=device,
+            overrides=dict(hidden=args.hidden, emb_dim=args.emb_dim, dropout=args.dropout,
+                           pool=args.pool, head=args.head),
+        )
+        cfg = dict(
+            hidden=ckpt_cfg.get("hidden", 128), dropout=ckpt_cfg.get("dropout", 0.1),
+            train_eps=ckpt_cfg.get("train_eps", False), pool=ckpt_cfg.get("pool", "mean"),
+            trainable=ckpt_cfg.get("trainable", True),
+        )
+        emb_dim = ckpt_cfg.get("emb_dim", 128)
+        head = ckpt_cfg.get("head", "linear")
     else:
         import wandb
 
@@ -111,6 +131,7 @@ def main():
 
         cfg = dict(best_run.config)
         emb_dim = cfg.get("EMB_DIM", cfg.get("emb_dim", 128))
+        head = args.head or "linear"
         ckpt_path = os.path.join(args.checkpoint_dir, f"best_{best_run.id}.pt")
 
         if not os.path.exists(ckpt_path):
@@ -139,11 +160,11 @@ def main():
     # at train time (guaranteed here since both are derived from the same
     # `build_code_vocab(df_train)` call).
     code_emb_matrix = make_random_code_embeddings(len(codes), emb_dim)
-    model = build_model_from_cfg(cfg, code_emb_matrix, edge_dim=3, out_classes=2, head=args.head).to(device)
+    model = build_model_from_cfg(cfg, code_emb_matrix, edge_dim=3, out_classes=2, head=head).to(device)
 
-    state = torch.load(ckpt_path, map_location=device)
-    if "model_state_dict" in state:
-        state = state["model_state_dict"]
+    if state is None:
+        # WandB path: state wasn't already loaded via load_checkpoint() above.
+        state, _ = load_checkpoint(ckpt_path, device=device)
     model.load_state_dict(state, strict=False)
 
     test_loader = DataLoader(test_graphs, batch_size=cfg.get("batch_size", 64))
