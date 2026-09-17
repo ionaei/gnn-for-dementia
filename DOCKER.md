@@ -71,6 +71,46 @@ docker run --rm \
     dementia-repro gnn-train --data-path /data/your_file.csv --epochs 5
 ```
 
+## Running it in VS Code (Dev Containers)
+
+This repo also includes a `.devcontainer/devcontainer.json`, which uses the
+exact same `Dockerfile` above — it doesn't publish or require a separate
+image on GitHub or anywhere else. It just gives VS Code a one-click way to
+build that same image and open an editor + integrated terminal inside it.
+
+1. Install the **[Dev
+   Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)**
+   extension in VS Code (requires Docker Desktop/Engine per the
+   Prerequisites above — VS Code itself doesn't run the container, Docker
+   does).
+2. **Create the `data` and `output` folders before opening the container**:
+   ```bash
+   cd gnn-for-dementia
+   mkdir -p data output
+   ```
+   This step matters here in a way it doesn't for a plain `docker run -v`:
+   VS Code's mount syntax requires these host folders to already exist, or
+   the container will fail to start.
+3. Open the `gnn-for-dementia` folder in VS Code. It should prompt
+   *"Reopen in Container"* — click it. (Or open the Command Palette,
+   `Cmd/Ctrl+Shift+P`, and run **Dev Containers: Reopen in Container**.)
+   First build takes the same ~5-10 minutes as `docker build` above, since
+   it's building the same image; VS Code caches it after that.
+4. Once it's open, you're inside the container with a normal VS Code
+   editor and integrated terminal. Your live source is mounted at `/app`
+   (edits save straight back to your host checkout, no rebuild needed), and
+   `/data` / `/output` map to the `data` / `output` folders you made in step
+   2 — the same layout `docker run -v ... :/data -v ... :/output` produces.
+   Run any command from "Getting going" directly, just without the
+   `docker run --rm -v ... dementia-repro` prefix, e.g.:
+   ```bash
+   ./entrypoint.sh gnn-train --epochs 5
+   # or call the underlying script directly:
+   cd gnn && python train.py --data-path ../data_prep/five_updated_synthetic.csv --no-wandb
+   ```
+
+
+
 ### Running the full pipeline (GNN path, the paper's best method)
 
 ```bash

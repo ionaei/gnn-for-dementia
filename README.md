@@ -38,6 +38,7 @@ reproducibility_package/
 ├── requirements.txt                <- union of all module dependencies
 ├── Dockerfile, .dockerignore       <- containerized setup (see DOCKER.md)
 ├── entrypoint.sh                   <- Docker entrypoint: one subcommand per module
+├── .devcontainer/devcontainer.json <- open this repo in VS Code via the same Dockerfile
 ├── DOCKER.md                       <- Docker prerequisites + step-by-step instructions
 ├── data_prep/                      <- schema docs + synthetic data generator
 │   ├── SCHEMA.md
@@ -165,6 +166,13 @@ honest account of what was and wasn't verified while preparing the image
 in, so `docker build`/`docker run` themselves weren't run there — see
 `DOCKER.md` for what was verified instead, and please do a first real build
 and smoke test on your end).
+
+If you use VS Code, `.devcontainer/devcontainer.json` builds this same
+Dockerfile automatically — open the repo and choose "Reopen in Container"
+(requires the [Dev
+Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+extension). See `DOCKER.md`'s "Running it in VS Code" section for the exact
+steps.
 
 ## Environment note: `torch` / `transformers` version compatibility
 

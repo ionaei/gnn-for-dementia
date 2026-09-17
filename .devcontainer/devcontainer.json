@@ -1,0 +1,49 @@
+{
+  "name": "dementia-gnn-reproducibility",
+
+  // Reuses the same Dockerfile the plain `docker build` / DOCKER.md workflow
+  // uses -- there is only one Dockerfile for this repo, this just gives
+  // VS Code a way to build and attach to it automatically.
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+
+  // Bind-mount the live repo over the image's baked-in /app (from the
+  // Dockerfile's `COPY . /app`) so edits made in VS Code are picked up
+  // immediately, with no rebuild needed. entrypoint.sh's APP_ROOT still
+  // defaults to /app, so every subcommand in DOCKER.md's command reference
+  // works unchanged from an integrated terminal inside this container.
+  "workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
+  "workspaceFolder": "/app",
+
+  // Matches the `mkdir -p data output` step in DOCKER.md / the top-level
+  // README's Docker section -- create those two folders next to this repo
+  // on your host before opening in a container, and they'll show up at
+  // /data and /output here too, exactly like `docker run -v ... :/data`.
+  "mounts": [
+    "source=${localWorkspaceFolder}/data,target=/data,type=bind",
+    "source=${localWorkspaceFolder}/output,target=/output,type=bind"
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      }
+    }
+  }
+
+  // No postCreateCommand needed -- requirements.txt is already installed
+  // as part of the image build (see Dockerfile). VS Code's Dev Containers
+  // extension overrides the image's ENTRYPOINT/CMD (entrypoint.sh / "help")
+  // with a long-running process so it can attach an integrated terminal;
+  // run any DOCKER.md command manually from that terminal, e.g.:
+  //   ./entrypoint.sh gnn-train --epochs 5
+  // or call the underlying script directly, e.g.:
+  //   cd gnn && python train.py --data-path ../data_prep/five_updated_synthetic.csv --no-wandb
+}
