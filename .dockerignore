@@ -1,0 +1,46 @@
+# Keep the image code-only where it matters: no trained weights, no
+# generated outputs, no local dev cruft. Every directory below is recreated
+# at container *runtime* by entrypoint.sh, written to the mounted
+# -v host:/output volume -- see DOCKER.md.
+
+.git
+.gitignore
+.gitattributes
+
+# Existing local checkpoints / trained model artifacts -- must NOT be baked
+# into the image (this was an explicit requirement: no pre-trained weights,
+# even though a couple of these are git-committed for documentation
+# purposes -- see the top-level README's repository structure table).
+baselines/checkpoints/
+baselines/explainability_outputs/
+gnn/checkpoints_gnn/
+bert_models/*/checkpoints/
+checkpoints/
+
+# Generated reports from local verification runs.
+risk_stratification/stratification_report.json
+explainability/gradient_results.json
+explainability/*_results.json
+
+# Local synthetic data copy that looks like a stale duplicate of
+# data_prep/five_updated_synthetic.csv (not referenced by any script's
+# default path or by the README). data_prep/five_updated_synthetic.csv
+# itself is deliberately NOT excluded here -- see the Dockerfile comment --
+# since it's the exact file the README's Quickstart and this image's
+# default-data fallback both use.
+baselines/five_updated_synthetic.csv
+
+# Python / editor / OS cruft.
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.pytest_cache/
+.DS_Store
+*.egg-info/
+
+# WandB local run cache (all scripts support --no-wandb).
+wandb/
+
+# Docker build context hygiene.
+Dockerfile
+.dockerignore

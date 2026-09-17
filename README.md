@@ -34,6 +34,9 @@ To reproduce the paper's actual numbers, apply for UK Biobank access (applicatio
 reproducibility_package/
 ├── README.md                      <- this file
 ├── requirements.txt                <- union of all module dependencies
+├── Dockerfile, .dockerignore       <- containerized setup (see DOCKER.md)
+├── entrypoint.sh                   <- Docker entrypoint: one subcommand per module
+├── DOCKER.md                       <- Docker prerequisites + step-by-step instructions
 ├── data_prep/                      <- schema docs + synthetic data generator
 │   ├── SCHEMA.md
 │   ├── icd10_blocks.py
@@ -138,6 +141,28 @@ python multimodal_classifier.py --no-wandb --epochs 1
 python text_only_classifier.py --no-wandb --epochs 1
 cd ..
 ```
+
+## Alternative setup: Docker
+
+If you'd rather not set up a Python environment by hand, the whole
+pipeline above (baselines, GNN, explainability, risk stratification, BERT
+models) is also runnable from a single Docker image — build once, then one
+`docker run` per module, with results landing in a folder on your host
+machine:
+
+```bash
+docker build -t dementia-repro .
+docker run --rm dementia-repro baselines-test      # self-contained smoke test
+docker run --rm -v "$(pwd)/output":/output dementia-repro gnn-train --epochs 5
+```
+
+See **`DOCKER.md`** for prerequisites (is Docker Desktop needed? do you need
+a GPU?), the full step-by-step guide, a command reference table, and an
+honest account of what was and wasn't verified while preparing the image
+(no Docker daemon was available in the environment this image was authored
+in, so `docker build`/`docker run` themselves weren't run there — see
+`DOCKER.md` for what was verified instead, and please do a first real build
+and smoke test on your end).
 
 ## Environment note: `torch` / `transformers` version compatibility
 
