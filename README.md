@@ -75,68 +75,112 @@ reproducibility_package/
 Each module directory has its own `README.md` with method-specific detail, usage examples, exact hyperparameters, and known caveats. This top-level README is the map; the module READMEs are the territory.
 
 
-## Quickstart 
+# Quickstart  
 
-Open a new terminal and execute the commands below. 
+## 1. Clone the repository
+
+Alternatively, download the repository as a ZIP file and open the extracted directory in your terminal.
 
 ```bash
-# 0. Clone repository or download zip file and go to unzipped directory in terminal.
 git clone https://github.com/ionaei/gnn-for-dementia
 cd gnn-for-dementia
+```
 
-# 1. Create environment and install dependencies (see the "Environment note" below before doing this
-# 1a. .venv environment (if conda not installed). If you run 1a, dont run 1b and vice versa.
+## 2. Create an environment and install dependencies
+
+Read the **Environment note** below first. Choose **either venv or conda**.
+
+### Option A: venv
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate      # on Windows: .venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
+```
 
-# 1b.   if you want to use conda environment (see conda installation link below)
+### Option B: conda
+
+See the conda installation link below if needed.
+
+```bash
 conda create -n dementia_gnn python=3.11.9
 conda activate dementia_gnn
 pip install -r requirements.txt
+```
 
-# 2. Generate synthetic data for smoke-testing every module
+## 3. Generate synthetic data
+
+Generate synthetic data for smoke-testing every module.
+
+```bash
 cd data_prep
 python generate_synthetic_data.py --n-patients 2000 --out five_updated_synthetic.csv
 cd ..
+```
 
-# 3. Baselines (RF/XGBoost) + SHAP explanations
+## 4. Train and test the baselines
+
+Train the RF and XGBoost models, generate SHAP explanations, and run the smoke-test suite.
+
+```bash
 cd baselines
 python train_rf_xgb.py --model both --no-wandb --data-path ../data_prep/five_updated_synthetic.csv
 python explain_shap.py --model both --data-path ../data_prep/five_updated_synthetic.csv
-python test_baselines.py   # full smoke-test suite, asserts on outputs
+python test_baselines.py
 cd ..
+```
 
-# 4. GNN (paper's headline method)
+## 5. Train the GNN
+
+Run the paper’s headline method.
+
+```bash
 cd gnn
 python train.py --data-path ../data_prep/five_updated_synthetic.csv \
     --no-wandb --epochs 3 --hidden 32 --emb-dim 32 --batch-size 16
 cd ..
+```
 
-# 5. GNN explainability
+## 6. Test GNN explainability
+
+Run the synthetic-graph smoke test. No real data are needed.
+
+```bash
 cd explainability
-python test_explainers.py   # synthetic-graph smoke test (no real data needed)
+python test_explainers.py
+cd ..
+```
 
-# 5b. Explain the actual GNN checkpoint from step 4 against real held-out patients:
-# tools/export_test_graphs.py reuses the same load_and_split + build_graphs path as
-# training, so the exported graphs' code vocabulary matches the checkpoint.
+## 7. Explain the trained GNN checkpoint
+
+Export held-out patient graphs and explain the checkpoint from step 5. The export script uses the same data-loading and graph-building pipeline as training, keeping the code vocabulary consistent with the checkpoint.
+
+```bash
+cd explainability
 python ../tools/export_test_graphs.py --data-path ../data_prep/five_updated_synthetic.csv \
     --out test_graphs.pkl
 python explain.py --model ../gnn/checkpoints_gnn/best_local.pt \
     --graphs test_graphs.pkl --method gradient --output gradient_results.json
 cd ..
+```
 
-# 6. Risk stratification on the GNN checkpoint from step 4.
-# gnn/train.py embeds hidden/emb-dim/pool/head in the checkpoint itself (see
-# gnn/checkpoint_utils.py), so run_stratification.py picks them up automatically --
-# you don't need to (and shouldn't have to) repeat them here.
+## 8. Run risk stratification
+
+Use the GNN checkpoint from step 5. Model settings (`hidden`, `emb-dim`, `pool`, and `head`) are loaded automatically from the checkpoint.
+
+```bash
 cd risk_stratification
 python run_stratification.py --data-path ../data_prep/five_updated_synthetic.csv \
     --local-checkpoint ../gnn/checkpoints_gnn/best_local.pt
 cd ..
+```
 
-# 7. BERT models (requires internet access to download pretrained weights)
+## 9. Run the BERT models
+
+Internet access is required to download pretrained weights.
+
+```bash
 cd bert_models
 python multimodal_classifier.py --no-wandb --epochs 1
 python text_only_classifier.py --no-wandb --epochs 1
