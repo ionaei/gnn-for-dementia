@@ -36,10 +36,6 @@ To reproduce the paper's actual numbers, apply for UK Biobank access (applicatio
 reproducibility_package/
 ├── README.md                      <- this file
 ├── requirements.txt                <- union of all module dependencies
-├── Dockerfile, .dockerignore       <- containerized setup (see DOCKER.md)
-├── entrypoint.sh                   <- Docker entrypoint: one subcommand per module
-├── .devcontainer/devcontainer.json <- open this repo in VS Code via the same Dockerfile
-├── DOCKER.md                       <- Docker prerequisites + step-by-step instructions
 ├── data_prep/                      <- schema docs + synthetic data generator
 │   ├── SCHEMA.md
 │   ├── icd10_blocks.py
@@ -79,10 +75,12 @@ reproducibility_package/
 Each module directory has its own `README.md` with method-specific detail, usage examples, exact hyperparameters, and known caveats. This top-level README is the map; the module READMEs are the territory.
 
 
-## Quickstart
+## Quickstart 
+
+Open a new terminal and execute the commands below. 
 
 ```bash
-# 0. Clone repository
+# 0. Clone repository or download zip file and go to unzipped directory in terminal.
 git clone https://github.com/ionaei/gnn-for-dementia
 cd gnn-for-dementia
 
@@ -93,7 +91,7 @@ source .venv/bin/activate      # on Windows: .venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 1b.   if you want to use conda environment
+# 1b.   if you want to use conda environment (see conda installation link below)
 conda create -n dementia_gnn python=3.11.9
 conda activate dementia_gnn
 pip install -r requirements.txt
@@ -145,34 +143,12 @@ python text_only_classifier.py --no-wandb --epochs 1
 cd ..
 ```
 
-## Alternative setup: Docker
+## Conda installation steps
 
-If you'd rather not set up a Python environment by hand, the whole
-pipeline above (baselines, GNN, explainability, risk stratification, BERT
-models) is also runnable from a single Docker image — build once, then one
-`docker run` per module, with results landing in a folder on your host
-machine:
+Conda: [www.anaconda.com/docs/getting-started/concepts/anaconda-or-miniconda](https://www.anaconda.com/docs/getting-started/concepts/anaconda-or-miniconda)
 
-```bash
-docker build -t dementia-repro .
-docker run --rm dementia-repro baselines-test      # self-contained smoke test
-docker run --rm -v "$(pwd)/output":/output dementia-repro gnn-train --epochs 5
-```
+If you would like to install the environement through conda, please install conda using the steps provided by anaconda in the link above. 
 
-See **`DOCKER.md`** for prerequisites (is Docker Desktop needed? do you need
-a GPU?), the full step-by-step guide, a command reference table, and an
-honest account of what was and wasn't verified while preparing the image
-(no Docker daemon was available in the environment this image was authored
-in, so `docker build`/`docker run` themselves weren't run there — see
-`DOCKER.md` for what was verified instead, and please do a first real build
-and smoke test on your end).
-
-If you use VS Code, `.devcontainer/devcontainer.json` builds this same
-Dockerfile automatically — open the repo and choose "Reopen in Container"
-(requires the [Dev
-Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-extension). See `DOCKER.md`'s "Running it in VS Code" section for the exact
-steps.
 
 ## Environment note: `torch` / `transformers` version compatibility
 
