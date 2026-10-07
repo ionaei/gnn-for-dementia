@@ -1,8 +1,7 @@
 """
 WandB Bayesian hyperparameter sweep configuration for the GNN.
 
-Recovered verbatim from `neurips_ad_graphs.ipynb` cell 13. Matches the
-search space reported in the paper's Appendix A2.
+Matches the search space reported in the paper's Appendix A2.
 """
 
 SWEEP_CONFIG = {

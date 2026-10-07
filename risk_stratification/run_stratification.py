@@ -4,10 +4,9 @@ and run the traffic-light risk stratification analysis.
 
 This wires together `gnn/evaluate_best_run.py` (model loading + evaluation)
 and `traffic_light_stratification.py` (the Youden's J / confidence-band
-statistics) into one runnable script, since the original
-`traffic_light.ipynb` inlined both concerns together. Run this from within
-the `risk_stratification/` directory so the relative import of `gnn/`
-resolves; the sibling scripts add `../gnn` to `sys.path`.
+statistics) into one runnable script. Run this from within the
+`risk_stratification/` directory so the relative import of `gnn/` resolves;
+the sibling scripts add `../gnn` to `sys.path`.
 
 Usage:
     # Using a local (e.g. --no-wandb smoke-test) checkpoint from gnn/train.py.
@@ -65,9 +64,8 @@ def main():
                               "Pooling has no learnable weights, so for a checkpoint saved without "
                               "embedded config this CANNOT be inferred -- pass this explicitly if you "
                               "know the run's config, otherwise it falls back to 'mean' with a warning. "
-                              "NOTE: this used to default to 'add' here (to match the original "
-                              "traffic_light.ipynb's specific best run) while gnn/train.py and "
-                              "evaluate_best_run.py defaulted to 'mean' -- that mismatch is exactly the "
+                              "NOTE: this script used to default --pool to 'add' here while gnn/train.py "
+                              "and evaluate_best_run.py defaulted to 'mean' -- that mismatch is exactly the "
                               "silent-wrong-predictions bug this checkpoint-config-embedding fix closes. "
                               "If you're evaluating an old checkpoint trained before this fix and you know "
                               "it used pool='add', pass --pool add explicitly.")

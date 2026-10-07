@@ -27,7 +27,7 @@ def generate_synthetic_cohort(n_patients: int, rng: np.random.Generator) -> pd.D
     eids = np.arange(1_000_000, 1_000_000 + n_patients)
 
     # Roughly balanced classes, matching the real cohort's near 50/50 split
-    # (real data: Dementia=4795, Control=4742; see preprocessing_ft.ipynb output).
+    # (real data: Dementia=4795, Control=4742).
     labels = rng.choice(["Dementia", "Control"], size=n_patients, p=[0.503, 0.497])
 
     sex = rng.integers(0, 2, size=n_patients)  # 0 = female, 1 = male

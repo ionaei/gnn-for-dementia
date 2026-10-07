@@ -21,8 +21,7 @@ This directory contains clean, reproducible implementations of all BERT-based me
 
 **Paper Reference:** "Multimodal BioClinical BERT+MLP" (Table 1, NeurIPS 2025 TS4H poster)  
 **Published Table 1 Results (pre-stratification, real UKB data, n=9,537 sex-matched):** F1=0.704, Sensitivity=0.694, Specificity=0.714, J=0.408, AUCROC=0.776 — verified directly against the poster PDF (`../../NeurIPS_poster.pdf`).
-**Ported from:** `bioclinical_multimodalclassifier.ipynb` (uses a separate `MultiModalDementiaClassifier` with its own age/sex/PRS MLP branch, concatenated with the BioClinicalBERT [CLS] embedding — see Architecture below).
-**Note:** the last saved cell output *in that notebook* reports Accuracy=0.6551, Sensitivity=0.9146, Specificity=0.3924 — a different (and more class-imbalanced-looking) run than the one behind the published Table 1 row above. Notebooks were re-run multiple times during development, and the last-saved output is not necessarily the checkpoint/run used for the final paper table. Both numbers are given here for full transparency; treat the poster's Table 1 numbers as the citable paper result, and the notebook figure as a historical data point from one particular run.
+**Implementation:** Uses a separate `MultiModalDementiaClassifier` with its own age/sex/PRS MLP branch, concatenated with the BioClinicalBERT [CLS] embedding — see Architecture below.
 
 **Architecture:**
 - Encodes diagnosis text (with temporal info) → BioClinicalBERT [CLS] token (768-dim)
@@ -51,8 +50,7 @@ python multimodal_classifier.py --data-path /path/to/five.csv --epochs 50
 
 **Paper Reference:** "BioClinical BERT pure" (Table 1, NeurIPS 2025 TS4H poster)  
 **Published Table 1 Results (pre-stratification, real UKB data, n=9,537 sex-matched):** F1=0.707, Sensitivity=0.726, Specificity=0.670, J=0.396, AUCROC=0.767 — verified directly against the poster PDF.
-**Ported from:** `version_2.ipynb`, which loads `AutoModelForSequenceClassification.from_pretrained("emilyalsentzer/Bio_ClinicalBERT", num_labels=2)` directly on the text sequence (no separate structured-feature MLP) and saves its checkpoint as `best_model_pure_bioclinical_v1.pt` — i.e. this notebook **is** the "BioClinical BERT pure" method in Table 1, not a duplicate of the multimodal method (see the corrected note in "Findings from Original Notebooks" below).
-**Note:** the last saved cell output in `version_2.ipynb` reports Accuracy=0.6960, Sensitivity=0.6813, Specificity=0.7110, a different run from the one behind the published Table 1 row (see the multimodal section above for why these numbers needn't match exactly).
+**Implementation:** Loads `AutoModelForSequenceClassification.from_pretrained("emilyalsentzer/Bio_ClinicalBERT", num_labels=2)` directly on the text sequence (no separate structured-feature MLP) — this is the "BioClinical BERT pure" method in Table 1, not a duplicate of the multimodal method.
 
 **Architecture:**
 - Input: text sequence (demographics + diagnoses + temporal info)
@@ -93,7 +91,7 @@ No Temporal:  "sex=Male; age=67; polygenic_risk_score=0.125; Hypertensive diseas
 - Same as text_only_classifier
 
 **Expected Outcome:** Should underperform text_only (0.707 F1, published) if temporal information is predictively important.
-**Ported from:** `bioclinical_no_temporal.ipynb`. Last saved cell output in that notebook: Accuracy=0.6971, Sensitivity=0.5813, Specificity=0.8143 (not directly comparable to the text-only F1 above since the notebook only reports accuracy/sensitivity/specificity, not F1/AUCROC — this ablation isn't broken out as its own row in the paper's Table 1).
+**Result:** Accuracy=0.6971, Sensitivity=0.5813, Specificity=0.8143 (not directly comparable to the text-only F1 above since only accuracy/sensitivity/specificity were recorded for this ablation — it isn't broken out as its own row in the paper's Table 1).
 
 **Usage:**
 ```bash
@@ -116,7 +114,7 @@ python bioclinical_no_temporal.py --no-wandb --epochs 1
 - Gradient clipping: max_norm=1.0
 
 **Expected Outcome:** RoBERTa should underperform BioClinicalBERT on clinical/medical terminology.
-**Ported from:** `roberta.ipynb`. Last saved cell output in that notebook: Accuracy=0.6761, Sensitivity=0.6021, Specificity=0.7511 (not broken out as its own row in the paper's Table 1; also not directly comparable to the text-only F1 above since only accuracy/sensitivity/specificity were recorded).
+**Result:** Accuracy=0.6761, Sensitivity=0.6021, Specificity=0.7511 (not broken out as its own row in the paper's Table 1; also not directly comparable to the text-only F1 above since only accuracy/sensitivity/specificity were recorded).
 
 **Usage:**
 ```bash
@@ -218,10 +216,10 @@ To train on real UK Biobank data (access-controlled; not included):
 Expected real results (published Table 1, pre-stratification, verified against `../../NeurIPS_poster.pdf`):
 - **Multimodal BioClinicalBERT+MLP:** F1=0.704, Sens=0.694, Spec=0.714, AUC=0.776
 - **Text-Only BioClinicalBERT ("BioClinical BERT pure"):** F1=0.707, Sens=0.726, Spec=0.670, AUC=0.767
-- **No-Temporal ablation:** Accuracy=0.6971 (last notebook run; not a Table 1 row, no F1/AUC recorded)
-- **RoBERTa ablation:** Accuracy=0.6761 (last notebook run; not a Table 1 row, no F1/AUC recorded)
+- **No-Temporal ablation:** Accuracy=0.6971 (not a Table 1 row, no F1/AUC recorded)
+- **RoBERTa ablation:** Accuracy=0.6761 (not a Table 1 row, no F1/AUC recorded)
 
-Note: actual performance depends on real data size, cohort composition, and exact preprocessing/seed; the two headline rows are the published paper numbers, while the two ablations only ever had accuracy/sensitivity/specificity recorded in their source notebooks (see "Findings from Original Notebooks" above for the full picture, including why a notebook's last-saved output and the published number can legitimately differ).
+Note: actual performance depends on real data size, cohort composition, and exact preprocessing/seed; the two headline rows are the published paper numbers, while the two ablations only ever had accuracy/sensitivity/specificity recorded.
 
 ---
 

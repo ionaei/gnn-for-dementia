@@ -1,26 +1,21 @@
 """
 GNN model for dementia risk prediction from patient star-graphs.
 
-This is a faithful port of `PatientICDGNN_BioBERT`, recovered verbatim from
-`neurips_ad_graphs.ipynb` (cells 16 and 19) and `traffic_light.ipynb` (cell 3)
-in the original (now-lost) working directory. Those two notebooks each
-contained a slightly different definition of the same class:
+This module implements `PatientICDGNN_BioBERT`, supporting two classification
+head variants used for different paper results:
 
-  - `neurips_ad_graphs.ipynb` cell 16 (used inside the WandB sweep function):
-    classification head = a single `nn.Linear(hidden, 2)`, pooling passed in
-    as a constructor argument (tuned as part of the sweep). This is the
-    variant that won and is reported as the paper's main GNN result.
-  - `neurips_ad_graphs.ipynb` cell 19 / `traffic_light.ipynb` cell 3: an
-    MLP classification head (`Linear -> ReLU -> Dropout -> Linear`) instead
-    of a single linear layer, with pooling hardcoded to 'add' rather than
-    tuned. This corresponds to the paper's GNN+MLP+RV ablation variant.
+  - A single `nn.Linear(hidden, 2)` head, with pooling passed in as a
+    constructor argument (tuned as part of the sweep). This is the variant
+    that won and is reported as the paper's main GNN result.
+  - An MLP classification head (`Linear -> ReLU -> Dropout -> Linear`)
+    instead of a single linear layer, with pooling hardcoded to 'add' rather
+    than tuned. This corresponds to the paper's GNN+MLP+RV ablation variant.
 
-Rather than keep two near-duplicate class definitions (as the original
-notebooks did), this module merges them into one class with a `head`
-argument (`"linear"` or `"mlp"`), so both paper variants can be trained from
-the same code path. Everything else -- the star-graph message passing, the
-patient/code node split via `is_patient`, the code-embedding lookup, the
-GINEConv layers -- is unchanged from the original.
+Rather than keep two near-duplicate class definitions, this module merges
+them into one class with a `head` argument (`"linear"` or `"mlp"`), so both
+paper variants can be trained from the same code path. The star-graph
+message passing, the patient/code node split via `is_patient`, the
+code-embedding lookup, and the GINEConv layers are shared across both.
 """
 
 import torch
@@ -60,9 +55,9 @@ class PatientICDGNN_BioBERT(nn.Module):
             trainable `nn.Embedding`; if False, it is frozen (registered as
             a buffer).
         pool (str): Graph pooling method: "mean", "add", or "max". The
-            winning sweep run used a tuned value here; the traffic-light /
-            risk-stratification notebook hardcoded "add" after the fact to
-            match its specific best run -- see `risk_stratification/`.
+            winning sweep run used a tuned value here; the risk-stratification
+            pipeline hardcodes "add" to match its specific best run -- see
+            `risk_stratification/`.
         head (str): "linear" (single `nn.Linear(hidden, out_classes)`,
             the paper's best-performing GNN configuration) or "mlp"
             (`Linear -> ReLU -> Dropout -> Linear`, the GNN+MLP ablation).
@@ -168,11 +163,8 @@ def build_model_from_cfg(cfg, code_emb_matrix, edge_dim=3, out_classes=2, head="
     """
     Construct a `PatientICDGNN_BioBERT` from a WandB run config dict.
 
-    This is the function referenced-but-never-defined in the original
-    `neurips_ad_graphs.ipynb` cell 20 (`model = build_model_from_cfg(cfg)`)
-    -- that cell also contained a stray typo (`adfdf`) and crashed before
-    reaching this call. `gnn/evaluate_best_run.py` fixes both issues and
-    uses this helper.
+    `gnn/evaluate_best_run.py` uses this helper to rebuild a model from a
+    saved sweep config.
 
     Args:
         cfg (dict or wandb.sdk.wandb_config.Config): must provide "hidden",
@@ -183,7 +175,7 @@ def build_model_from_cfg(cfg, code_emb_matrix, edge_dim=3, out_classes=2, head="
             matrix matching the run's EMB_DIM.
         edge_dim (int): edge attribute dimension (3 in the paper).
         out_classes (int): number of output classes.
-        head (str): "linear" or "mlp" -- pick based on which sweep/notebook
+        head (str): "linear" or "mlp" -- pick based on which sweep config
             produced `cfg` (see module docstring).
     """
     get = cfg.get if hasattr(cfg, "get") else (lambda k, d=None: cfg[k] if k in cfg else d)

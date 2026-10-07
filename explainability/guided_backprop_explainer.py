@@ -8,8 +8,8 @@ Attribution: sum of modified gradients per node, per edge.
 Reference: Bach et al. "Deep Inside Convolutional Networks" (2013)
 
 Implementation note: `PatientICDGNN_BioBERT` (the ground-truth model this
-explainer targets -- see `gnn/model.py`, ported verbatim from the original
-notebooks) applies its two post-GINEConv ReLUs as a functional tensor method
+explainer targets -- see `gnn/model.py`) applies its two post-GINEConv ReLUs
+as a functional tensor method
 call (`h = self.conv1(...).relu()`), not as an `nn.ReLU` submodule, so they
 cannot be intercepted with `register_full_backward_hook` on `nn.ReLU`
 instances (an earlier version of this file only hooked `nn.ReLU` submodules,

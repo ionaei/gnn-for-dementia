@@ -1,9 +1,7 @@
 """
 Risk stratification ("traffic light") for the GNN's dementia predictions.
 
-Ported verbatim (the statistical logic is unchanged) from
-`traffic_light.ipynb` cells 7-11 in the original working directory. Given a
-trained `PatientICDGNN_BioBERT` and a test set, this:
+Given a trained `PatientICDGNN_BioBERT` and a test set, this:
 
   1. Finds the Youden's J-optimal decision threshold t* on P(dementia)
      (`youden_threshold_for_dementia`), maximizing Sensitivity + Specificity - 1.
@@ -16,13 +14,12 @@ trained `PatientICDGNN_BioBERT` and a test set, this:
      (ambiguous / not confidently classified either way). This is the
      "traffic light" risk-band scheme described in the paper.
 
-What's new here (the original notebook re-defined the model class and
-re-loaded a specific WandB run inline): this module factors the *statistics*
-(threshold search / traffic-light banding) out from the *model loading*, so
-it can be driven either by a freshly-trained local checkpoint (via
-`gnn/evaluate_best_run.py`) or a WandB-hosted run, without duplicating the
-model definition. See `run_stratification.py` in this same directory for a
-runnable end-to-end CLI that wires the two together.
+This module factors the *statistics* (threshold search / traffic-light
+banding) out from the *model loading*, so it can be driven either by a
+freshly-trained local checkpoint (via `gnn/evaluate_best_run.py`) or a
+WandB-hosted run, without duplicating the model definition. See
+`run_stratification.py` in this same directory for a runnable end-to-end
+CLI that wires the two together.
 """
 
 import numpy as np
@@ -120,10 +117,9 @@ def pick_w_by_max_J(y, p_dem, t, max_w=0.25, step=0.005, min_coverage=0.0):
 
 def stratify(labels, probs_control, max_w=0.30, step=0.002, min_coverage=0.50):
     """
-    End-to-end convenience wrapper matching the original notebook's usage
-    (cells 10-11): given test-set labels and P(control) from the model,
-    computes the Youden threshold, the baseline (single-threshold) metrics,
-    and the traffic-light (confident-only) metrics, and prints the
+    End-to-end convenience wrapper: given test-set labels and P(control) from
+    the model, computes the Youden threshold, the baseline (single-threshold)
+    metrics, and the traffic-light (confident-only) metrics, and prints the
     dementia-probability and control-probability views of both threshold
     schemes.
 

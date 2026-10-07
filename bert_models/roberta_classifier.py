@@ -13,11 +13,11 @@ Model:
 
 Hypothesis:
   BioClinicalBERT, being pre-trained on clinical notes (MIMIC-III, etc.), should
-  outperform general RoBERTa on medical terminology. Original notebook achieved
+  outperform general RoBERTa on medical terminology. This ablation achieved
   reasonable performance, suggesting RoBERTa is a viable baseline but not optimal
   for EHR data.
 
-Train Config (from original notebook):
+Train Config:
   - Model: roberta-large
   - Learning rate: 2e-6
   - Epochs: 15

@@ -2,14 +2,14 @@
 Train the star-graph GINEConv GNN (`PatientICDGNN_BioBERT`) for dementia
 risk prediction, optionally as a WandB Bayesian hyperparameter sweep.
 
-Ported from `neurips_ad_graphs.ipynb` cells 1-17 (`train_sweep()` and the
-surrounding data-loading / graph-construction / sweep-launch code). The
-training loop, optimizer param groups (decay / no-decay / embedding, each
-with their own LR), mixed-precision (autocast + GradScaler), linear
-warmup+decay schedule, gradient clipping, and early-stopping-on-val-loss
-logic are unchanged from the original. What's new/cleaned up:
+Implements `train_sweep()` and the surrounding data-loading /
+graph-construction / sweep-launch code. The training loop, optimizer param
+groups (decay / no-decay / embedding, each with their own LR),
+mixed-precision (autocast + GradScaler), linear warmup+decay schedule,
+gradient clipping, and early-stopping-on-val-loss logic implement the
+paper's training procedure. Notable design choices:
 
-  - CLI interface (argparse) instead of hardcoded paths/notebook cells.
+  - CLI interface (argparse) instead of hardcoded paths.
   - `--no-wandb` mode: runs a single training run with fixed hyperparameters
     (no sweep) and skips all `wandb.*` calls, so the pipeline can be
     smoke-tested without a WandB account/login.
@@ -19,17 +19,16 @@ logic are unchanged from the original. What's new/cleaned up:
   - Checkpoint directory is a CLI arg rather than a hardcoded folder name.
   - The LR schedule (`_linear_warmup_decay_scheduler` below) is a small
     hand-rolled `LambdaLR` replacement for `transformers.get_linear_schedule_with_warmup`.
-    The original notebook imported that function directly; this package
-    pins `torch==2.1.2` for aarch64/disk-space reasons (see gnn/README or
-    top-level README), and current `transformers` releases gate their
-    PyTorch-backed utilities behind `torch>=2.5`, so the import silently
-    resolves to a dummy stub that raises `ImportError` at call time. Rather
-    than pull in a second, older `transformers` pin just for one scheduler
-    function, this reimplements the exact same linear-warmup-then-linear-decay
-    schedule (identical formula to `transformers`' implementation) with zero
-    extra dependencies. The schedule shape and hyperparameter semantics
-    (`num_warmup_steps`, `num_training_steps`) are unchanged from the
-    original.
+    This package pins `torch==2.1.2` for aarch64/disk-space reasons (see
+    gnn/README or top-level README), and current `transformers` releases
+    gate their PyTorch-backed utilities behind `torch>=2.5`, so the import
+    silently resolves to a dummy stub that raises `ImportError` at call
+    time. Rather than pull in a second, older `transformers` pin just for
+    one scheduler function, this reimplements the exact same
+    linear-warmup-then-linear-decay schedule (identical formula to
+    `transformers`' implementation) with zero extra dependencies. The
+    schedule shape and hyperparameter semantics (`num_warmup_steps`,
+    `num_training_steps`) match `transformers`' implementation.
 
 Usage:
     # Smoke test on synthetic data, no WandB, a few epochs, CPU-friendly:

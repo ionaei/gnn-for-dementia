@@ -15,8 +15,8 @@ This module implements the paper's post-hoc risk-stratification scheme, which ta
 
 ## Files
 
-- **`traffic_light_stratification.py`** — The pure statistics: threshold search, baseline metrics, and confidence-band search. Ported verbatim (statistical logic unchanged) from `traffic_light.ipynb` cells 7-11. Model loading has been deliberately factored out of this file (see below) so the same statistics can be driven by either a local checkpoint or a WandB run without duplicating the model definition.
-- **`run_stratification.py`** — An end-to-end CLI that wires together `gnn/evaluate_best_run.py` (model loading + test-set evaluation) and `traffic_light_stratification.py` (the statistics above), since the original `traffic_light.ipynb` inlined both concerns together (including redefining the model class inline). Writes a JSON report with the Youden threshold, baseline metrics, traffic-light metrics, and the underlying test-set metrics.
+- **`traffic_light_stratification.py`** — The pure statistics: threshold search, baseline metrics, and confidence-band search. Model loading has been deliberately factored out of this file (see below) so the same statistics can be driven by either a local checkpoint or a WandB run without duplicating the model definition.
+- **`run_stratification.py`** — An end-to-end CLI that wires together `gnn/evaluate_best_run.py` (model loading + test-set evaluation) and `traffic_light_stratification.py` (the statistics above). Writes a JSON report with the Youden threshold, baseline metrics, traffic-light metrics, and the underlying test-set metrics.
 
 ## Usage
 

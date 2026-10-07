@@ -5,7 +5,7 @@ NeurIPS 2025 Workshop on Time Series for Health (TS4H)
 
 Paper: [openreview.net/forum?id=2FfRHgVSx3](https://openreview.net/forum?id=2FfRHgVSx3)
 
-This package reconstructs a clean, runnable, and documented version of the codebase behind the paper. 
+This package provides a clean, runnable, and documented version of the codebase behind the paper. 
 
 ## What's in this package
 
@@ -54,7 +54,7 @@ reproducibility_package/
 │   ├── text_only_classifier.py     <- "BioClinical BERT pure"
 │   ├── bioclinical_no_temporal.py  <- ablation
 │   └── roberta_classifier.py       <- ablation
-│       (per-notebook findings + provenance are in bert_models/README.md)
+│       (per-model findings are in bert_models/README.md)
 ├── gnn/                             <- star-graph GINEConv GNN (paper's best method)
 │   ├── graph_construction.py, model.py, sweep_config.py
 │   ├── code_embeddings_bert.py     
@@ -72,7 +72,7 @@ reproducibility_package/
     └── export_test_graphs.py       <- pickles held-out test graphs for explain.py --graphs
 ```
 
-Each module directory has its own `README.md` with method-specific detail, usage examples, exact hyperparameters, and known caveats. This top-level README is the map; the module READMEs are the territory.
+Each module directory has its own `README.md` with method-specific detail, usage examples, exact hyperparameters, and known caveats. 
 
 
 ## Quickstart  

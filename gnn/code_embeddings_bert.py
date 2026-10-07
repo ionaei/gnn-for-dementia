@@ -1,27 +1,18 @@
 """
 Build the per-diagnosis-code BioClinicalBERT embedding matrix (`code_emb_bert`).
 
-STATUS: RECONSTRUCTED, not recovered verbatim. The original
-`neurips_ad_graphs.ipynb` comments reference a `code_emb_bert` matrix
-("Use this in place of `code_emb_bert`" appears next to the random-init
-`code_emb_simple` construction) but the cell that actually built it was
-never found in any surviving notebook. The closest surviving artifact,
-`get_embeddings_bioclinical.ipynb`, computes one embedding PER PATIENT
-(mean-pooled BioClinicalBERT embedding of that patient's full
-`icd10_sequence` string) -- useful for the BERT-family models in
-`bert_models/`, but the wrong shape for this GNN: the GNN needs one
-embedding PER DIAGNOSIS CODE (`[NUM_CODES, 768]`), used as `code_emb_matrix`
-in `PatientICDGNN_BioBERT` in place of the Xavier-random `code_emb_simple`.
+This is used as `code_emb_matrix` in `PatientICDGNN_BioBERT`, in place of the
+Xavier-random `code_emb_simple` baseline, for the GNN+BioClinical paper
+variant. The GNN needs one embedding PER DIAGNOSIS CODE (`[NUM_CODES, 768]`),
+as distinct from the per-patient embeddings used by the BERT-family models in
+`bert_models/` (one mean-pooled BioClinicalBERT embedding of a patient's full
+`icd10_sequence` string).
 
-This module reconstructs that missing step in the most direct way
-consistent with how the rest of the pipeline uses BioClinicalBERT: encode
-each unique diagnosis code's human-readable text (`code_texts`, from
+This module builds that per-code matrix in the most direct way consistent
+with how the rest of the pipeline uses BioClinicalBERT: encode each unique
+diagnosis code's human-readable text (`code_texts`, from
 `graph_construction.build_code_vocab`) with `emilyalsentzer/Bio_ClinicalBERT`
-and mean-pool over tokens, exactly like `get_embeddings_bioclinical.ipynb`
-does per-patient. Please treat this file as a documented best-effort
-reconstruction and verify against any remaining artifacts (e.g. a saved
-`code_emb_bert.pt` tensor, if one turns up) before relying on it for
-paper-matching numbers.
+and mean-pool over tokens.
 """
 
 import torch

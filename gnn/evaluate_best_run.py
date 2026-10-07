@@ -2,25 +2,11 @@
 Load the best run from a WandB sweep and evaluate it on the held-out test
 set.
 
-Ported from `neurips_ad_graphs.ipynb` cell 20, which had two bugs that
-prevented it from ever running (this was the last, unfinished cell in the
-notebook):
-
-  1. A stray typo `adfdf` on its own line, immediately after the imports --
-     this alone would `NameError` and halt execution before anything else
-     in the cell ran.
-  2. A call to `build_model_from_cfg(cfg)`, a function that is never
-     defined anywhere in the notebook.
-  3. (Latent, would have surfaced next) `ckpt_path = f"checkpoints/best_{best_run.id}.pt"`
-     -- but every run in this project actually saved to
-     `checkpoints_trainable_GNN_simpleemb_pureGNN_updated_df/best_{run.id}.pt`
-     (see `train.py` / the original `train_sweep()`), so this path would
-     not have found the checkpoint even after fixing bugs 1 and 2.
-
-This script fixes all three: it removes the typo, implements
-`build_model_from_cfg` (now `model.build_model_from_cfg`, reused from
-`model.py`), and takes the checkpoint directory as a CLI argument instead
-of hardcoding a mismatched path.
+This script locates the best run's checkpoint, rebuilds the corresponding
+model via `model.build_model_from_cfg` (see `model.py`), and loads weights
+from a checkpoint directory supplied as a CLI argument (rather than a
+hardcoded path), so it works regardless of where `train.py` wrote its
+checkpoints.
 """
 
 import argparse

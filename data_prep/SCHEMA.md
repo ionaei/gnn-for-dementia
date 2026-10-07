@@ -4,11 +4,7 @@ This project uses UK Biobank EHR data, which is access-controlled and **cannot b
 redistributed or included in this repository** (see `README.md` at the repo root for
 how to request access under application number 109607, as cited in the paper).
 
-Every script in this repository expects a single CSV with the schema below. The
-column names and encodings here were recovered directly from the original
-preprocessing/modelling notebooks (`five.csv` / `five_updated.csv` in the original,
-now-lost, working directory), so any real extract built the same way will drop in
-without changes.
+Every script in this repository expects a single CSV with the schema below.
 
 ## Columns
 
@@ -18,7 +14,7 @@ without changes.
 | `Class` | str | `"Dementia"` or `"Control"` |
 | `Sex` | int (0/1) | 0 = female, 1 = male |
 | `Age` | float | Age (years) at the 5-years-pre-diagnosis / index date |
-| `Standard PRS for alzheimer's disease (AD)` | float | Polygenic risk score for Alzheimer's disease (note the literal apostrophe and spaces in the column name -- the original code does not rename it until the `_ft` preprocessing notebook, which replaces spaces with underscores) |
+| `Standard PRS for alzheimer's disease (AD)` | float | Polygenic risk score for Alzheimer's disease (note the literal apostrophe and spaces in the column name -- scripts that need a cleaner identifier rename it internally by replacing spaces with underscores) |
 | `{diagnosis_block}_present` | float (0.0/1.0) | 1.0 if the participant had this ICD-10 block diagnosed more than 5 years before their dementia diagnosis / index date, else 0.0 |
 | `{diagnosis_block}_time` | float (days), or NaN | Days between the diagnosis date and the 5-years-pre-index date. NaN (or absent) when `_present` is 0.0 |
 
@@ -38,15 +34,13 @@ cohort; the original data had well over 100 `_present`/`_time` column pairs.
 
 ## Splits
 
-All notebooks use `sklearn.train_test_split` with `random_state=42`, stratified on
-`label`. Two slightly different split ratios were used across the original notebooks
-(preserved here per-model for faithfulness):
+All scripts use `sklearn.train_test_split` with `random_state=42`, stratified on
+`label`. Two slightly different split ratios are used per-model:
 
-- BERT-only / multimodal BERT+MLP notebooks: 80/10/10 via two splits
+- BERT-only / multimodal BERT+MLP models: 80/10/10 via two splits
   (`test_size=0.1` then `test_size=0.15` on the remainder) -> ~60/13.5/10 train/val/test.
-- GNN notebook (`neurips_ad_graphs.ipynb`, the most complete/final pipeline, matching
-  the paper's reported 80:20 train/test split): `test_size=0.2` then `test_size=0.125`
-  on the remainder -> 70/10/20 train/val/test.
+- GNN pipeline (matching the paper's reported 80:20 train/test split):
+  `test_size=0.2` then `test_size=0.125` on the remainder -> 70/10/20 train/val/test.
 
 ## Synthetic data
 

@@ -231,18 +231,3 @@ For the dementia/EHR model:
 - **Guided Backpropagation**: Bach et al., "Deep Inside Convolutional Networks" (2013)
 - **Original GraphXAI Repo**: https://github.com/mims-harvard/GraphXAI
 
-## File Provenance
-
-| File | Source | Status |
-|------|--------|--------|
-| `gradient_explainer.py` | Adapted from GraphXAI + custom | ✓ New, dementia-specific |
-| `guided_backprop_explainer.py` | Adapted from GraphXAI `guided_bp.py` | ✓ New, dementia-specific |
-| `test_explainers.py` | Custom | ✓ New, comprehensive test suite |
-
-**Excluded sMRI-related files from original Explainers/ folder:**
-- `model_sMRI.py`, `train_sMRI.py` — Different model architecture for brain imaging
-- `dataset_split.py` — Hard-coded sMRI multimodal loading
-- `generate_graphs_func_val.py`, `generate_node_features_func.py` — Brain region correlation matrices, not patient ICD graphs
-- `AS_best_mod_exp*.ipynb`, `DT_best_mod_exp*.ipynb` — Notebooks for sMRI experiments
-- `pgm_*.py` — PGM explainer (generic, but only needed if paper uses it)
-

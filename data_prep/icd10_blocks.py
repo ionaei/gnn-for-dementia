@@ -3,17 +3,12 @@ A list of ICD-10 *block*-level diagnosis descriptions.
 
 The paper represents diagnoses at ICD-10 block level (not individual codes), e.g.
 "Hypertensive diseases" rather than "I10 Essential (primary) hypertension". The
-descriptions below are standard WHO ICD-10 block titles. The subset marked as
-"confirmed" was recovered verbatim from column headers / printed output in the
-original (now-lost) preprocessing notebooks; the rest are standard ICD-10 block
-titles added so the synthetic dataset has a realistic number of diagnosis columns
-(the real cohort had well over 100).
+descriptions below are standard WHO ICD-10 block titles. 
 
 This list is used ONLY to generate synthetic/smoke-test data -- it has no bearing
 on the real UK Biobank cohort's actual diagnosis columns.
 """
 
-# Recovered verbatim from the original notebooks (column names / printed sequences)
 CONFIRMED_BLOCKS = [
     "Hypertensive diseases",
     "Arthropathies",
@@ -39,7 +34,6 @@ CONFIRMED_BLOCKS = [
     "Abnormal findings on examination of urine, without diagnosis",
 ]
 
-# Additional standard ICD-10 block titles, added to reach a realistic column count
 ADDITIONAL_BLOCKS = [
     "Intestinal infectious diseases",
     "Other bacterial diseases",

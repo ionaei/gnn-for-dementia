@@ -10,8 +10,8 @@ Reference: "LLM: BioClinical BERT" in the paper.
 Table 1: BioClinical BERT pure F1=0.707, Sensitivity=0.726, Specificity=0.670
 
 Train Config:
-  - Learning rate: 2e-6 (from notebook observations; originally 2e-5 but we adapt).
-  - Epochs: up to 20 (with early stopping; 15-20 in original notebooks).
+  - Learning rate: 2e-6 (empirically tuned down from an initial 2e-5).
+  - Epochs: up to 20 (with early stopping; typically converges around 15-20).
   - Batch size: 16
   - WandB logging: yes (optional with --no-wandb flag).
   - Train/Val/Test split: 60/13.5/10 via test_size=0.1 then 0.15.

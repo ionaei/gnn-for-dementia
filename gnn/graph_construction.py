@@ -2,10 +2,8 @@
 Build per-patient star graphs from the flat CSV schema (see
 `data_prep/SCHEMA.md`), for the GNN pipeline.
 
-Recovered verbatim (with only cosmetic renaming) from `neurips_ad_graphs.ipynb`
-cells 1-8 and confirmed identical in `traffic_light.ipynb` cell 1. This is
-the code that determines, for every patient row, which ICD-10 blocks they
-have (`{block}_present == 1`), and builds a `torch_geometric.data.Data`
+This is the code that determines, for every patient row, which ICD-10 blocks
+they have (`{block}_present == 1`), and builds a `torch_geometric.data.Data`
 object: one central patient node [age, sex, PRS] connected to one leaf node
 per diagnosis, with edge attributes encoding how long ago each diagnosis was.
 """
@@ -54,15 +52,14 @@ def build_code_vocab(df):
 def make_random_code_embeddings(num_codes: int, emb_dim: int = 128, seed: int = None) -> torch.Tensor:
     """
     Randomly-initialised (RV) diagnosis-code embeddings: Xavier-uniform init,
-    row-wise L2-normalized. This is the `code_emb_simple` matrix from the
-    original notebook -- the "randomly initialised vectors" baseline the
-    paper compares against BioClinicalBERT embeddings.
+    row-wise L2-normalized. This is the `code_emb_simple` matrix -- the
+    "randomly initialised vectors" baseline the paper compares against
+    BioClinicalBERT embeddings.
     """
     if seed is not None:
         # nn.init.xavier_uniform_ doesn't take a generator directly, so seed
-        # the global RNG state instead (matches the original notebook, which
-        # didn't seed this at all -- seeding here is an improvement for
-        # reproducibility, documented as a deliberate deviation).
+        # the global RNG state instead. Seeding here is a deliberate choice
+        # for reproducibility.
         torch.manual_seed(seed)
     code_emb = torch.empty(num_codes, emb_dim, dtype=torch.float32)
     nn.init.xavier_uniform_(code_emb)

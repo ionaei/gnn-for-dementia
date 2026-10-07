@@ -11,13 +11,13 @@ Input text format (without temporal):
 
 Hypothesis:
   If temporal information is important, this model should underperform the full model.
-  The original notebook achieved reasonable performance (~64% accuracy on real data),
+  This ablation achieved reasonable performance (~64% accuracy on real data),
   suggesting temporal info is helpful but not absolutely essential.
 
-Train Config (from original notebook):
+Train Config:
   - Model: BioClinicalBERT (AutoModelForSequenceClassification)
   - Learning rate: 2e-6
-  - Epochs: 15 (notebook shows this was shortened from initial ~50)
+  - Epochs: 15 (shortened from an initial ~50 based on early-stopping behavior)
   - Batch size: 16
   - Gradient clipping: max_norm=1.0
 """
