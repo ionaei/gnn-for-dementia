@@ -12,8 +12,7 @@
 # end in THIS REPRODUCIBILITY PACKAGE'S OWN test environment (every
 # module's smoke test / --no-wandb training run, the full gnn/ +
 # explainability/ + risk_stratification/ pipeline, and
-# baselines/train_rf_xgb.py). This is NOT the environment the original
-# paper was trained in -- that environment was never recorded or shared;
+# baselines/train_rf_xgb.py). 
 # these pins only guarantee that *this* codebase, run against the
 # synthetic smoke-test data, behaves the way it's documented to. A loose
 # `>=`-only range previously let an unrelated `pip install -U` silently
