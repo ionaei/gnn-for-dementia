@@ -92,6 +92,8 @@ Read the **Environment note** below first. Choose **either venv or conda**.
 
 #### Option A: venv
 
+Requires **Python 3.9-3.11** for `torch` to resolve to this package's own tested version (`torch==2.1.2`); `requirements.txt` allows up through `<2.5.0` so Python 3.12+ will still install, just with a newer `torch` that hasn't been re-verified against this codebase (re-run a module's smoke test to confirm, or use conda below to match the tested setup exactly).
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate      # on Windows: .venv\Scripts\activate
@@ -196,12 +198,12 @@ If you would like to install the environement through conda, please install cond
 
 ## Environment note: `torch` / `transformers` version compatibility
 
-This package's development environment is pinned to `torch==2.1.2` (aarch64 hardware / disk-space constraints). While preparing this package, we found — empirically, not just by reading changelogs — that recent `transformers` releases are **not** compatible with that `torch` version for the BERT models:
+Recent `transformers` releases are **not** compatible with that `torch` version for the BERT models:
 
 - `transformers>=4.41` and all of `transformers 5.x` fail at import or model-load time against `torch==2.1.2` (`AttributeError: module 'torch.utils._pytree' has no attribute 'register_pytree_node'`, or, for 5.x specifically, an outright refusal to enable the PyTorch backend: `"requires the PyTorch library but it was not found in your environment"`, even with `torch` installed).
 - `transformers==4.40.0` was confirmed (by installing it in this environment) to import cleanly and construct `AutoModel`/`AutoModelForSequenceClassification` against `torch==2.1.2` without error.
 
-`requirements.txt` (and `bert_models/requirements.txt`) pin `transformers` to `>=4.30.0,<=4.40.0` accordingly. If you upgrade `torch` to `>=2.5.0` in your own environment, this ceiling can be lifted. `gnn/`, `explainability/`, and `risk_stratification/` (which depend on `torch_geometric`, not `transformers`) are unaffected by this and were fully re-run end-to-end against `torch==2.1.2` + `torch_geometric==2.8.0` while preparing this package (see the Quickstart above).
+`requirements.txt` (and `bert_models/requirements.txt`) pin `transformers` to `==4.40.0` accordingly, and cap `torch` at `<2.5.0` so that ceiling stays valid. Both files leave `torch` itself as a range (`>=2.1.2,<2.5.0`) rather than an exact pin, because `torch==2.1.2` has no PyPI wheel for Python>=3.12 (see the venv note in the Quickstart above) — pip will resolve to the newest version in range with a wheel for your Python, which has not been separately re-verified against this codebase the way `torch==2.1.2` was (re-run a module's smoke test to check, or use conda with `python=3.11.9` to match the exact tested setup). If you upgrade `torch` to `>=2.5.0` in your own environment, the `transformers` ceiling can be lifted too. `gnn/`, `explainability/`, and `risk_stratification/` (which depend on `torch_geometric`, not `transformers`) are unaffected by the `transformers` compatibility issue and were fully re-run end-to-end against `torch==2.1.2` + `torch_geometric==2.8.0.post1` while preparing this package (see the Quickstart above).
 
 ## Paper Results 
 

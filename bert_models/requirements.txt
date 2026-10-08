@@ -1,25 +1,32 @@
 # BERT-family models for dementia risk prediction
 # Install with: pip install -r requirements.txt
 #
-# These are the same exact pins as the repository-root requirements.txt
-# (see the PINNING POLICY note there) for the packages this directory
-# actually imports -- kept here too so bert_models/ can be installed
-# standalone without pulling in the GNN/baselines-only dependencies.
+# These are the same pins as the repository-root requirements.txt (see the
+# PINNING POLICY and PYTHON VERSION notes there) for the packages this
+# directory actually imports -- kept here too so bert_models/ can be
+# installed standalone without pulling in the GNN/baselines-only
+# dependencies. As with the root file, these reflect THIS REPRODUCIBILITY
+# PACKAGE'S OWN test environment, not the environment the original paper
+# was trained in (which was never recorded or shared).
 
 # Core ML/data science
-torch==2.1.2
+# torch==2.1.2 (this package's own tested version) has no PyPI wheel for
+# Python>=3.12, so this is left as a range -- pip will pick whichever
+# version in range has a wheel for your Python (<3.12 will typically still
+# resolve 2.1.2). Keep the upper bound <2.5.0; see the IMPORTANT note below.
+torch>=2.1.2,<2.5.0
 # IMPORTANT (verified empirically in this package's dev environment, which
-# is pinned to torch==2.1.2 for aarch64/disk-space reasons -- see
-# gnn/train.py's module docstring): transformers>=4.41 and all of
-# transformers 5.x require internal `torch.utils._pytree` APIs that don't
-# exist in torch 2.1.2 (AttributeError at import time), and transformers>=5.0
-# additionally refuses to enable its PyTorch backend at all unless
-# torch>=2.5 is installed (AutoModel*.from_pretrained(...) then raises
-# "requires the PyTorch library but it was not found in your environment"
-# even though torch IS installed). transformers==4.40.0 is the newest
-# release confirmed to import and load checkpoints cleanly against
-# torch==2.1.2 in this environment. If you upgrade torch to >=2.5, the
-# transformers version ceiling below can be lifted too.
+# used torch==2.1.2 for aarch64/disk-space reasons -- see gnn/train.py's
+# module docstring): transformers>=4.41 and all of transformers 5.x require
+# internal `torch.utils._pytree` APIs that don't exist in torch 2.1.2
+# (AttributeError at import time), and transformers>=5.0 additionally
+# refuses to enable its PyTorch backend at all unless torch>=2.5 is
+# installed (AutoModel*.from_pretrained(...) then raises "requires the
+# PyTorch library but it was not found in your environment" even though
+# torch IS installed). transformers==4.40.0 is the newest release
+# confirmed to import and load checkpoints cleanly against torch==2.1.2 in
+# this environment. If you upgrade torch to >=2.5, the transformers version
+# ceiling below can be lifted too.
 transformers==4.40.0
 scikit-learn==1.7.2
 pandas==2.3.3

@@ -9,14 +9,28 @@
 # PINNING POLICY: every package below that this codebase actually imports
 # (i.e. everything except the two optional packages at the bottom) is
 # pinned to the exact version it was most recently verified against end to
-# end in this package's test environment (every module's smoke test /
-# --no-wandb training run, the full gnn/ + explainability/ +
-# risk_stratification/ pipeline, and baselines/train_rf_xgb.py). A loose
+# end in THIS REPRODUCIBILITY PACKAGE'S OWN test environment (every
+# module's smoke test / --no-wandb training run, the full gnn/ +
+# explainability/ + risk_stratification/ pipeline, and
+# baselines/train_rf_xgb.py). This is NOT the environment the original
+# paper was trained in -- that environment was never recorded or shared;
+# these pins only guarantee that *this* codebase, run against the
+# synthetic smoke-test data, behaves the way it's documented to. A loose
 # `>=`-only range previously let an unrelated `pip install -U` silently
 # bump a transitive dependency to a version that changed behavior (this is
 # how the torch/transformers incompatibility documented below was first
 # discovered). If you need a newer version of something, that's fine --
 # just re-run each module's smoke test after upgrading and update the pin.
+#
+# PYTHON VERSION: `torch==2.1.2` below has no PyPI wheel for Python>=3.12
+# (PyPI's oldest 3.12 wheel is torch==2.2.0), so a venv created with
+# Python 3.12+ will fail to install it. Either create your venv with
+# Python 3.9-3.11 (the conda route in the Quickstart above pins exactly
+# this, via `python=3.11.9`), or relax the `torch` pin below to
+# `torch>=2.1.2,<2.5.0` and let pip pick a 3.12-compatible version in that
+# range (this was the range used before these pins were tightened to exact
+# versions, and should behave the same for this codebase -- just re-run
+# the smoke tests to confirm on your Python version).
 
 # --- Core data science ---
 pandas==2.3.3
@@ -34,12 +48,16 @@ scikit-optimize==0.10.2  # optional: enables real BayesSearchCV; falls back to
                           # RandomizedSearchCV automatically if unavailable
 
 # --- GNN + explainability + risk stratification (gnn/, explainability/, risk_stratification/) ---
-# IMPORTANT: keep torch <2.5.0. This package was developed/tested against
-# torch==2.1.2 (aarch64 / disk-space constraints -- see gnn/train.py's module
-# docstring); torch_geometric==2.8.0.post1 works fine against it, but see the
-# transformers note below for why the *upper* bound on torch also matters
-# for bert_models/.
-torch==2.1.2
+# IMPORTANT: keep torch <2.5.0 (see the transformers note below for why the
+# *upper* bound matters for bert_models/). This package's own test
+# environment used torch==2.1.2 specifically (aarch64 / disk-space
+# constraints -- see gnn/train.py's module docstring), but that exact
+# version has no PyPI wheel for Python>=3.12 (see the PYTHON VERSION note
+# above) -- so this is left as a range rather than an exact pin, letting
+# pip pick whichever version in range has a wheel for your Python. Every
+# version pip can resolve here is expected to behave the same for this
+# codebase; re-run the relevant module's smoke test to confirm on yours.
+torch>=2.1.2,<2.5.0
 torch_geometric==2.8.0.post1
 tqdm==4.70.1
 
