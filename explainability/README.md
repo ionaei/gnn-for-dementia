@@ -6,7 +6,7 @@ This module provides explainability methods for the `PatientICDGNN_BioBERT` mode
 
 The paper employs two gradient-based explainability methods to understand which diagnoses (ICD-10 codes) and temporal patterns drive the model's predictions:
 
-1. **Gradient Explainer** — Vanilla gradient saliency: attributes importance to nodes/edges by summing gradients of the loss with respect to input features.
+1. **Gradient Explainer** — Vanilla gradient saliency: attributes importance to nodes/edges by summing the *absolute value* of the loss gradient with respect to each node's/edge's input features (not a plain signed sum, which would let positive and negative per-feature gradients cancel out and hide genuinely important nodes).
 2. **Guided BackPropagation Explainer** — Modified ReLU-gated backprop: only positive gradients propagate, highlighting features that actively contribute to the prediction.
 
 ## Files
@@ -54,6 +54,8 @@ The paper employs two gradient-based explainability methods to understand which 
   ```
 
   This only produces meaningful diagnosis-code vocabulary alignment if `export_test_graphs.py` is run with the **same `--data-path` and `--seed`** as the checkpoint's training run (both default to the same values `gnn/train.py` does, so this lines up automatically for the default synthetic-data workflow).
+
+  **Human-readable diagnosis names in the output:** each `top_diagnoses` entry in `explain.py`'s `--output` JSON now includes a `"diagnosis"` field (e.g. `"Other joint disorders"`) alongside the raw `node_idx`/`importance`. This comes from `code_names`, a list attribute that `export_test_graphs.py` attaches to every pickled graph (`codes[cid] for cid in code_ids`, aligned 1:1 with the diagnosis nodes). For a `<graphs.pkl>` exported before this fix (no `code_names` attribute), `explain.py` falls back to reporting a raw `"diagnosis_code_id"` integer instead -- still correct, just not a human-readable name.
 
   **Pooling, again:** `--pool`/`--head` here work exactly like in `evaluate_best_run.py`/`run_stratification.py` (see `../gnn/README.md`'s "Checkpoint format / pooling-mismatch fix" section) -- checkpoints saved by the current `gnn/train.py` embed their own config, including `pool`, `num_codes`, and `emb_dim` (needed here since `explain.py` doesn't rebuild the code vocabulary from a CSV the way the other two scripts do), so `explain.py` usually needs only `--model`, `--graphs`, `--method`, and `--output`. For an older checkpoint with no embedded config, `load_model()` warns and defaults `pool` to `"mean"` if you don't pass `--pool` explicitly.
 
@@ -158,20 +160,23 @@ class GradientExplainer:
     def __init__(model, criterion=None):
         """criterion defaults to F.cross_entropy"""
 
-    def explain_graph(data, target_class=None, aggregate_node_imp=torch.sum):
+    def explain_graph(data, target_class=None, aggregate_node_imp=_abs_sum):
         """
         Generate explanation for single graph.
         
         Args:
             data: torch_geometric.data.Data
             target_class: int or None (auto-detect from prediction)
-            aggregate_node_imp: Function to aggregate feature gradients per node
+            aggregate_node_imp: Function to aggregate feature gradients per
+                node. Defaults to summing |gradient| (not a signed sum --
+                see gradient_explainer.py's module docstring for why);
+                pass a different callable for signed attribution instead.
         
         Returns:
             Explanation object
         """
 
-    def explain_batch(data_list, target_classes=None, aggregate_node_imp=torch.sum):
+    def explain_batch(data_list, target_classes=None, aggregate_node_imp=_abs_sum):
         """Generate explanations for list of graphs"""
 ```
 
@@ -182,10 +187,13 @@ class GuidedBackpropExplainer:
     def __init__(model, criterion=None):
         """criterion defaults to F.cross_entropy"""
 
-    def explain_graph(data, target_class=None, aggregate_node_imp=torch.sum):
-        """Same interface as GradientExplainer"""
+    def explain_graph(data, target_class=None, aggregate_node_imp=_abs_sum):
+        """Same interface as GradientExplainer. `_abs_sum` is a no-op here
+        in the normal case (guided-backprop gradients are already
+        elementwise non-negative by construction), but kept consistent
+        with GradientExplainer's default for the same reason."""
 
-    def explain_batch(data_list, target_classes=None, aggregate_node_imp=torch.sum):
+    def explain_batch(data_list, target_classes=None, aggregate_node_imp=_abs_sum):
         """Same interface as GradientExplainer"""
 ```
 
@@ -214,9 +222,8 @@ For the dementia/EHR model:
 ## Interpretation
 
 ### Gradient Explainer
-- Positive gradient → feature increases predicted probability of the class
-- Negative gradient → feature decreases predicted probability of the class
-- Larger magnitude → stronger influence on prediction
+- With the default aggregation (`_abs_sum`), `node_imp`/`edge_imp` are **unsigned magnitudes**: larger value → stronger influence on the prediction in either direction, but the sign of that influence is not recoverable from the aggregated score alone.
+- To recover directional information (does this feature push the prediction *toward* or *away from* the predicted class), pass a signed aggregation function instead, e.g. `aggregate_node_imp=lambda g, dim: g.sum(dim=dim)`, and inspect per-feature `x.grad`/`edge_attr.grad` directly for individual features within a node/edge.
 
 ### Guided BackPropagation
 - Only non-negative saliencies (ReLU-gated)

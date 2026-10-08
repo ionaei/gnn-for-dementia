@@ -14,23 +14,22 @@ Hyperparameter search spaces are from the paper's Appendix A4, Table A2.
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import SelectFromModel
-from sklearn.metrics import (
-    accuracy_score,
-    auc,
-    roc_curve,
-    roc_auc_score,
-)
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 
 import feature_engineering as fe
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "common"))
+from data_split import add_label_column, split_dataframe  # noqa: E402
+from metrics import compute_metrics  # noqa: E402
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -45,40 +44,17 @@ except ImportError:
 # Label encoding: Dementia=0, Control=1
 # Sensitivity = recall for class 0 (Dementia)
 # Specificity = recall for class 1 (Control)
-
-
-def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_pred_proba: np.ndarray) -> dict:
-    """
-    Compute evaluation metrics.
-
-    Args:
-        y_true: Ground truth labels (0/1).
-        y_pred: Predicted binary labels (0/1).
-        y_pred_proba: Predicted probabilities for class 1 (shape: (n,)).
-
-    Returns:
-        Dictionary with accuracy, sensitivity, specificity, AUROC.
-    """
-    accuracy = accuracy_score(y_true, y_pred)
-
-    # Sensitivity = recall for class 0 (Dementia)
-    tn = ((y_true == 1) & (y_pred == 1)).sum()
-    fp = ((y_true == 1) & (y_pred == 0)).sum()
-    fn = ((y_true == 0) & (y_pred == 1)).sum()
-    tp = ((y_true == 0) & (y_pred == 0)).sum()
-
-    sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
-
-    # AUROC: use probabilities for the positive class (class 1)
-    auroc = roc_auc_score(y_true, y_pred_proba)
-
-    return {
-        "accuracy": accuracy,
-        "sensitivity": sensitivity,
-        "specificity": specificity,
-        "auroc": auroc,
-    }
+#
+# `compute_metrics` is now imported from common/metrics.py (the unified
+# convention shared with gnn/ and bert_models/) instead of a local
+# reimplementation. The local version only computed accuracy/sensitivity/
+# specificity/AUROC -- no F1 and no AUPRC -- which is why this script's
+# Table 1 row was missing an F1 entry. `common/metrics.py`'s
+# `compute_metrics(y_true, y_pred, probs_control)` has the exact same
+# argument meaning (`probs_control` = P(class 1) = P(control), i.e. what
+# this file was already passing as `y_pred_proba`), so no call-site
+# reshaping is needed -- only the richer return dict (adds precision, f1,
+# J, auprc, and raw tp/fn/fp/tn) and the shared cross-model convention.
 
 
 def train_and_evaluate_rf(
@@ -123,9 +99,16 @@ def train_and_evaluate_rf(
     rf_initial.fit(X_train, y_train)
 
     # Step 2: SelectFromModel to select top 25% of features
+    # threshold=-np.inf forces SelectFromModel to rank ALL features by
+    # importance and keep exactly the top `max_features`. Without an
+    # explicit threshold, SelectFromModel's default ("mean") first drops
+    # every feature at or below the mean importance, THEN caps at
+    # max_features -- so it silently returns "at most the top 25%, and
+    # often far fewer" rather than "the top 25%" the paper describes.
     selector = SelectFromModel(
         rf_initial,
         prefit=True,
+        threshold=-np.inf,
         max_features=max(1, int(0.25 * X_train.shape[1])),
     )
     X_train_selected = selector.transform(X_train)
@@ -196,22 +179,37 @@ def train_and_evaluate_rf(
 
     logger.info(f"Best RF hyperparameters (via Bayesian CV): {search.best_params_}")
 
-    # Step 4: Evaluate on test set
+    # Step 4: Evaluate on validation and test sets. The validation set was
+    # previously computed (X_val_selected, above) but never actually used
+    # anywhere -- BayesSearchCV/RandomizedSearchCV already select
+    # hyperparameters via their own internal 5-fold CV on X_train, so val
+    # metrics are reported here (not used for selection, to avoid leakage)
+    # purely so val-vs-test can be compared to sanity-check that the
+    # hyperparameter search didn't overfit the CV folds.
+    y_val_pred = best_rf.predict(X_val_selected)
+    y_val_pred_proba = best_rf.predict_proba(X_val_selected)[:, 1]
+    val_metrics = compute_metrics(y_val, y_val_pred, y_val_pred_proba)
+
     y_pred = best_rf.predict(X_test_selected)
     y_pred_proba = best_rf.predict_proba(X_test_selected)[:, 1]
-
     metrics = compute_metrics(y_test, y_pred, y_pred_proba)
+
+    logger.info(f"RF val metrics: {val_metrics}")
     logger.info(f"RF test metrics: {metrics}")
 
     if use_wandb and WANDB_AVAILABLE:
         try:
-            wandb.log({"rf_metrics": metrics, "rf_best_params": search.best_params_})
+            wandb.log({
+                "rf_val_metrics": val_metrics, "rf_metrics": metrics,
+                "rf_best_params": search.best_params_,
+            })
         except Exception as e:
             logger.warning(f"Failed to log to wandb: {e}")
 
     return {
         "model": best_rf,
         "selector": selector,
+        "val_metrics": val_metrics,
         "metrics": metrics,
         "selected_features": selected_feature_names,
         "hyperparameters": dict(search.best_params_),
@@ -262,9 +260,14 @@ def train_and_evaluate_xgb(
     xgb_initial.fit(X_train, y_train)
 
     # Step 2: SelectFromModel to select top 25% of features
+    # See the matching comment in train_and_evaluate_rf above: threshold=
+    # -np.inf is required so SelectFromModel keeps exactly the top
+    # max_features by importance, rather than "at most the top 25%" after
+    # an implicit mean-importance pre-filter.
     selector = SelectFromModel(
         xgb_initial,
         prefit=True,
+        threshold=-np.inf,
         max_features=max(1, int(0.25 * X_train.shape[1])),
     )
     X_train_selected = selector.transform(X_train)
@@ -291,13 +294,21 @@ def train_and_evaluate_xgb(
         BAYES_AVAILABLE = False
 
     if BAYES_AVAILABLE:
-        # Bayesian hyperparameter search space (Appendix A4, Table A2 for XGBoost)
+        from skopt.space import Real
+
+        # Bayesian hyperparameter search space (Appendix A4, Table A2 for XGBoost).
+        # gamma is specified as log-uniform [0.1, 5] in the paper, but a plain
+        # (low, high) tuple passed to BayesSearchCV is sampled UNIFORMLY, not
+        # log-uniformly (skopt only applies a non-uniform prior when told to
+        # via skopt.space.Real(..., prior=...)) -- so gamma needs to be
+        # spelled out explicitly rather than left as a bare tuple like the
+        # other (uniform-prior, per the paper) hyperparameters here.
         search_space = {
             "max_depth": (3, 10),
             "min_child_weight": (1, 10),
             "subsample": (0.4, 1.0),
             "colsample_bytree": (0.4, 1.0),
-            "gamma": (0.1, 5.0),
+            "gamma": Real(0.1, 5.0, prior="log-uniform"),
         }
 
         search = BayesSearchCV(
@@ -322,7 +333,12 @@ def train_and_evaluate_xgb(
             "min_child_weight": [1, 2, 3, 5, 10],
             "subsample": [0.4, 0.6, 0.8, 1.0],
             "colsample_bytree": [0.4, 0.6, 0.8, 1.0],
-            "gamma": [0.1, 0.5, 1.0, 2.0, 5.0],
+            # Log-spaced (not linearly spaced) grid points, approximating
+            # the paper's log-uniform [0.1, 5] prior for gamma -- a discrete
+            # RandomizedSearchCV grid can't express a continuous prior, but
+            # log-spacing the candidate values is a much closer match than
+            # the previous linearly-spaced [0.1, 0.5, 1.0, 2.0, 5.0] list.
+            "gamma": list(np.geomspace(0.1, 5.0, 5)),
         }
 
         search = RandomizedSearchCV(
@@ -344,22 +360,32 @@ def train_and_evaluate_xgb(
 
     logger.info(f"Best XGBoost hyperparameters (via Bayesian CV): {search.best_params_}")
 
-    # Step 4: Evaluate on test set
+    # Step 4: Evaluate on validation and test sets (see the matching
+    # comment in train_and_evaluate_rf above for why val is reported here).
+    y_val_pred = best_xgb.predict(X_val_selected)
+    y_val_pred_proba = best_xgb.predict_proba(X_val_selected)[:, 1]
+    val_metrics = compute_metrics(y_val, y_val_pred, y_val_pred_proba)
+
     y_pred = best_xgb.predict(X_test_selected)
     y_pred_proba = best_xgb.predict_proba(X_test_selected)[:, 1]
-
     metrics = compute_metrics(y_test, y_pred, y_pred_proba)
+
+    logger.info(f"XGBoost val metrics: {val_metrics}")
     logger.info(f"XGBoost test metrics: {metrics}")
 
     if use_wandb and WANDB_AVAILABLE:
         try:
-            wandb.log({"xgb_metrics": metrics, "xgb_best_params": search.best_params_})
+            wandb.log({
+                "xgb_val_metrics": val_metrics, "xgb_metrics": metrics,
+                "xgb_best_params": search.best_params_,
+            })
         except Exception as e:
             logger.warning(f"Failed to log to wandb: {e}")
 
     return {
         "model": best_xgb,
         "selector": selector,
+        "val_metrics": val_metrics,
         "metrics": metrics,
         "selected_features": selected_feature_names,
         "hyperparameters": dict(search.best_params_),
@@ -401,8 +427,8 @@ def main():
         default="checkpoints",
         help="Directory to save trained models, scaler, and metrics "
              "(mirrors the --checkpoint-dir flag on explain_shap.py, added "
-             "so callers -- e.g. a Docker entrypoint writing to a mounted "
-             "output volume -- can redirect it without editing this file).",
+             "so callers -- e.g. a CI job or pipeline step writing outputs "
+             "to a different mount -- can redirect it without editing this file).",
     )
 
     args = parser.parse_args()
@@ -424,7 +450,6 @@ def main():
     if not Path(args.data_path).exists():
         logger.error(f"Data file not found: {args.data_path}")
         logger.info("Generating synthetic data for smoke test...")
-        import sys
         sys.path.insert(0, str(Path(__file__).parent.parent / "data_prep"))
         from generate_synthetic_data import generate_synthetic_cohort
         rng = np.random.default_rng(args.seed)
@@ -433,9 +458,14 @@ def main():
         logger.info(f"Generated synthetic data: {args.data_path}")
 
     df = fe.load_and_preprocess(args.data_path)
-    y_full = fe.get_labels(df)
 
-    # 70/10/20 stratified split (matching SCHEMA.md, GNN pipeline).
+    # Canonical 70/10/20 stratified split (common/data_split.py -- shared
+    # with gnn/ and bert_models/ so every model family in this package is
+    # scored on the same held-out patients). This script's own two chained
+    # `train_test_split` calls already implemented the identical
+    # test_size=0.2-then-0.125 scheme, so this changes no numbers here --
+    # it just removes a second independent implementation of the same
+    # split in favor of the single shared one.
     #
     # IMPORTANT: we split the raw dataframe FIRST, before any scaling, and
     # only fit StandardScaler (inside build_feature_matrix) on the training
@@ -448,22 +478,11 @@ def main():
     # themselves. Splitting first and fitting the scaler on
     # `df_train` only (then just `.transform`-ing val/test with that same
     # fitted scaler, never refitting) closes that leak.
-
-    # First split: 80% train+val, 20% test
-    df_temp, df_test, y_temp, y_test = train_test_split(
-        df, y_full,
-        test_size=0.2,
-        stratify=y_full,
-        random_state=args.seed,
-    )
-
-    # Second split: 87.5% (of remaining 80%) = 70% total train, 12.5% = 10% total val
-    df_train, df_val, y_train, y_val = train_test_split(
-        df_temp, y_temp,
-        test_size=0.125,
-        stratify=y_temp,
-        random_state=args.seed,
-    )
+    df = add_label_column(df)
+    df_train, df_val, df_test = split_dataframe(df, seed=args.seed)
+    y_train = df_train["label"].values
+    y_val = df_val["label"].values
+    y_test = df_test["label"].values
 
     X_train, feature_names, fitted_scaler = fe.build_feature_matrix(df_train, fit_scaler=True)
     X_val, _, _ = fe.build_feature_matrix(df_val, scaler=fitted_scaler, fit_scaler=False)
@@ -507,8 +526,12 @@ def main():
             metrics_to_save = {
                 k: float(v) for k, v in rf_result["metrics"].items()
             }
+            val_metrics_to_save = {
+                k: float(v) for k, v in rf_result["val_metrics"].items()
+            }
             json.dump(
                 {
+                    "val_metrics": val_metrics_to_save,
                     "test_metrics": metrics_to_save,
                     "hyperparameters": rf_result["hyperparameters"],
                     "best_cv_score": float(rf_result["best_cv_score"]),
@@ -539,8 +562,12 @@ def main():
             metrics_to_save = {
                 k: float(v) for k, v in xgb_result["metrics"].items()
             }
+            val_metrics_to_save = {
+                k: float(v) for k, v in xgb_result["val_metrics"].items()
+            }
             json.dump(
                 {
+                    "val_metrics": val_metrics_to_save,
                     "test_metrics": metrics_to_save,
                     "hyperparameters": xgb_result["hyperparameters"],
                     "best_cv_score": float(xgb_result["best_cv_score"]),
@@ -560,7 +587,10 @@ def main():
         print(f"  Test Accuracy:  {result['metrics']['accuracy']:.4f}")
         print(f"  Sensitivity:    {result['metrics']['sensitivity']:.4f}")
         print(f"  Specificity:    {result['metrics']['specificity']:.4f}")
+        print(f"  F1 (dementia):  {result['metrics']['f1']:.4f}")
         print(f"  AUROC:          {result['metrics']['auroc']:.4f}")
+        print(f"  AUPRC:          {result['metrics']['auprc']:.4f}")
+        print(f"  Val AUROC:      {result['val_metrics']['auroc']:.4f}  (sanity check vs. test, not used for model selection)")
         print(f"  Best CV Score:  {result['best_cv_score']:.4f}")
         print(f"  Selected Features: {len(result['selected_features'])} / {len(feature_names)}")
 

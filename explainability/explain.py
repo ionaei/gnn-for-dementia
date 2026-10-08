@@ -47,9 +47,13 @@ def load_model(model_path: str, device: str = 'cpu',
             parameters, different predictions).
         head: Classification head ('linear' | 'mlp'). Unlike pooling, an
             'mlp' head DOES have distinguishing keys in the state_dict
-            (e.g. 'head.0.weight' / 'head.2.weight' vs. a single
-            'head.weight'), so this is auto-detected from the checkpoint
-            when not explicitly overridden.
+            (e.g. 'classifier.0.weight' / 'classifier.3.weight' vs. a
+            single 'classifier.weight' -- see `gnn/model.py`'s
+            `PatientICDGNN_BioBERT.__init__`, which assigns both head
+            variants to `self.classifier`, never to a `self.head`
+            submodule; `self.head` there is just a string flag), so this
+            is auto-detected from the checkpoint when not explicitly
+            overridden.
     """
     checkpoint = torch.load(model_path, map_location=device)
 
@@ -102,8 +106,23 @@ def _infer_config_from_state(state: Dict[str, torch.Tensor]) -> Dict[str, Any]:
     layer's worth of keys that a 'linear' head doesn't). `pool` cannot --
     pooling ops (mean/add/max) have no parameters -- so it is left for the
     caller to override via `load_model(..., pool=...)` if it isn't 'mean'.
+
+    Both head variants are assigned to the SAME submodule attribute name,
+    `self.classifier`, in `PatientICDGNN_BioBERT.__init__` (see
+    `gnn/model.py`) -- `self.head` on that model is just a string flag,
+    never an actual `nn.Module`, so it never appears as a state_dict key
+    prefix. The 'linear' head is a bare `nn.Linear` assigned directly to
+    `self.classifier`, producing keys 'classifier.weight'/'classifier.bias'
+    with no numeric submodule index. The 'mlp' head is an
+    `nn.Sequential(Linear, ReLU, Dropout, Linear)` assigned to the same
+    attribute, producing indexed keys 'classifier.0.weight' (first Linear)
+    and 'classifier.3.weight' (second Linear, ReLU/Dropout have no
+    parameters of their own). So checking for a 'classifier.0.' prefix
+    (previously, incorrectly, 'head.0.'/'head.2.' -- keys that can never
+    exist on this model) is sufficient and unambiguous to distinguish the
+    two variants.
     """
-    head = 'mlp' if any(k.startswith('head.0.') or k.startswith('head.2.') for k in state) else 'linear'
+    head = 'mlp' if any(k.startswith('classifier.0.') for k in state) else 'linear'
     config = {
         'num_codes': state.get('code_emb.weight', torch.zeros(10, 64)).shape[0],
         'emb_dim': state.get('code_emb.weight', torch.zeros(10, 64)).shape[1],
@@ -204,14 +223,34 @@ def explain_graphs(model: torch.nn.Module,
         top_nodes = exp.get_top_nodes(k=top_k, exclude_patient=True)
         top_edges = exp.get_top_edges(k=top_k)
 
+        # Node 0 is always the patient (graph_construction.row_to_graph);
+        # nodes 1..N correspond 1:1, in order, to `graph.code_ids`. When the
+        # graph was pickled by tools/export_test_graphs.py, `code_names` is
+        # also attached (same order as code_ids) so we can report *which
+        # diagnosis* a node represents, not just its opaque position in the
+        # graph -- previously this output only ever gave `node_idx`, which
+        # is meaningless to a reader without separately re-deriving the
+        # diagnosis-code vocabulary out-of-band. Older pickles without
+        # `code_names` fall back to the raw code_id (still more useful than
+        # the in-graph node position alone).
+        code_names = getattr(graph, 'code_names', None)
+        code_ids = getattr(graph, 'code_ids', None)
+
+        top_diagnoses = []
+        for idx, imp in top_nodes:
+            entry = {'node_idx': int(idx), 'importance': float(imp)}
+            diag_pos = idx - 1  # node 0 is the patient; diagnoses start at 1
+            if code_names is not None and 0 <= diag_pos < len(code_names):
+                entry['diagnosis'] = code_names[diag_pos]
+            elif code_ids is not None and 0 <= diag_pos < code_ids.numel():
+                entry['diagnosis_code_id'] = int(code_ids[diag_pos].item())
+            top_diagnoses.append(entry)
+
         result = {
             'graph_id': i,
             'predicted_class': pred_class,
             'explanation_method': method,
-            'top_diagnoses': [
-                {'node_idx': int(idx), 'importance': float(imp)}
-                for idx, imp in top_nodes
-            ],
+            'top_diagnoses': top_diagnoses,
             'top_edges': [
                 {'src': int(src), 'dst': int(dst), 'importance': float(imp)}
                 for (src, dst), imp in top_edges

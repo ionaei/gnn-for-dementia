@@ -1,6 +1,6 @@
 # Baseline Models (Random Forest & XGBoost)
 
-This directory implements the baseline models from the paper "Predicting Dementia Risk Using Longitudinal Electronic Health Records Data" (Imperial College London, NeurIPS 2025 Workshop).
+This directory implements the baseline models from the paper "Predicting Dementia Risk Using Longitudinal Electronic Health Records Data" (Biggart, Fogel, and Barnaghi, Imperial College London / UK Dementia Research Institute, NeurIPS 2025 Workshop on Time Series for Health (TS4H)).
 
 ## Overview
 
@@ -38,14 +38,10 @@ CLI script that trains and evaluates baseline models end-to-end.
    - Search space via Bayesian optimization (BayesSearchCV) with 5-fold cross-validation
    - Scoring metric: ROC-AUC
    - **Random Forest search space**: `n_estimators` [100–500], `max_depth` [3–10], `min_samples_split` [2–20], `min_samples_leaf` [1–10]
-   - **XGBoost search space**: `max_depth` [3–10], `min_child_weight` [1–10], `subsample` [0.4–1.0], `colsample_bytree` [0.4–1.0], `gamma` [0.1–5.0]
+   - **XGBoost search space**: `max_depth` [3–10], `min_child_weight` [1–10], `subsample` [0.4–1.0], `colsample_bytree` [0.4–1.0], `gamma` [0.1–5.0] — sampled with a **log-uniform** prior (`skopt.space.Real(0.1, 5.0, prior="log-uniform")`, or `np.geomspace(0.1, 5.0, 5)` in the `RandomizedSearchCV` fallback), matching the paper's stated log-uniform [0.1, 5] prior for `gamma`. A plain `Real(0.1, 5.0)`/linear grid would sample uniformly in magnitude instead, under-sampling the small-`gamma` region the log-uniform prior emphasizes.
    - If `scikit-optimize` is not available, falls back to `RandomizedSearchCV` with equivalent search space (documented in log output)
 
-4. **Evaluation metrics (Table 1 of paper)**:
-   - **Accuracy**: (TP + TN) / (TP + TN + FP + FN)
-   - **Sensitivity**: TP / (TP + FN) — recall for Dementia class (class 0)
-   - **Specificity**: TN / (TN + FP) — recall for Control class (class 1)
-   - **AUROC**: Area under the receiver operating characteristic curve
+4. **Evaluation metrics**: computed by the shared `common/metrics.py:compute_metrics()` used across all models in this package (dementia = positive class), giving accuracy, sensitivity, specificity, precision, **F1**, Youden's **J**, AUROC, and **AUPRC**, plus raw tp/fn/fp/tn — a superset of the paper's reported Table 1 columns (accuracy, sensitivity, specificity, AUROC). `train_rf_xgb.py` computes and reports this both on the **validation** set (`val_metrics` — a sanity check, not used for model selection beyond the hyperparameter search's own cross-validation) and on the **test** set (`metrics` — the headline numbers), so the previously-unused validation split is now actually evaluated on rather than only being carved out and discarded.
 
 **Usage:**
 ```bash

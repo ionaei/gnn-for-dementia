@@ -33,6 +33,15 @@ import torch.nn.functional as F
 from typing import Optional, Callable, List, Tuple
 import warnings
 
+# Reuse the same default node/edge aggregation as GradientExplainer (sum of
+# |gradient| rather than plain torch.sum) for consistency between the two
+# explainers. Guided backprop gradients should already be elementwise
+# non-negative by construction (see _GuidedReLUFunction.backward above), so
+# this is a no-op in the normal case -- but using the same `abs().sum()`
+# convention here too means neither explainer silently regresses into
+# sign-cancelling "importance" if that invariant is ever violated.
+from gradient_explainer import _abs_sum
+
 
 class _GuidedReLUFunction(torch.autograd.Function):
     """
@@ -179,7 +188,7 @@ class GuidedBackpropExplainer:
     def explain_graph(self,
                      data: object,
                      target_class: Optional[int] = None,
-                     aggregate_node_imp: Callable = torch.sum) -> Explanation:
+                     aggregate_node_imp: Callable = _abs_sum) -> Explanation:
         """
         Generate guided backprop explanation for a single graph.
 
@@ -295,7 +304,7 @@ class GuidedBackpropExplainer:
     def explain_batch(self,
                      data_list: List[object],
                      target_classes: Optional[List[int]] = None,
-                     aggregate_node_imp: Callable = torch.sum) -> List[Explanation]:
+                     aggregate_node_imp: Callable = _abs_sum) -> List[Explanation]:
         """
         Generate guided backprop explanations for multiple graphs.
 

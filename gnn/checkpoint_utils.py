@@ -23,12 +23,19 @@ records every hyperparameter needed to rebuild the exact architecture
 `explainability/explain.py`, so all three read the same config the same way
 instead of each guessing independently.
 
-Old checkpoints saved before this fix (e.g. the currently-committed
-`gnn/checkpoints_gnn/best_local.pt`, a bare state_dict with no embedded
-config) are still loadable: `load_checkpoint()` falls back to whatever the
-caller passes via `overrides`, and warns loudly if `pool` in particular
-can't be determined either way, since that's the one hyperparameter that
-can't be sanity-checked against the state_dict's tensor shapes.
+Old checkpoints saved before this fix (bare `model.state_dict()`, no
+embedded config) are still loadable: `load_checkpoint()` falls back to
+whatever the caller passes via `overrides`, and warns loudly if `pool` in
+particular can't be determined either way, since that's the one
+hyperparameter that can't be sanity-checked against the state_dict's tensor
+shapes.
+
+(Note: `gnn/checkpoints_gnn/best_local.pt`, as currently committed in this
+package, was produced by the fixed `train.py` and already has the wrapped
+`{"state_dict": ..., "config": {...}}` format with a real `config` --
+despite an earlier version of this docstring describing it as the
+bare-state-dict case above. That legacy case is still handled for anyone
+loading an older checkpoint produced before this fix existed.)
 """
 
 import warnings

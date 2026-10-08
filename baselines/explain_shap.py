@@ -60,15 +60,25 @@ def explain_model_shap(
     selected_indices = selector.get_support(indices=True)
     selected_features = [feature_names[i] for i in selected_indices]
 
-    # Compute SHAP values using TreeExplainer
-    # For XGBoost, we may need to use a different method or check_additivity=False
+    # Compute SHAP values using TreeExplainer.
+    # `check_additivity` is a parameter of `.shap_values()`, not of the
+    # `TreeExplainer` constructor -- passing it to the constructor (as a
+    # previous version of this code did) is silently accepted there but has
+    # no effect, so the later `.shap_values()` call still runs its default
+    # additivity check, which can throw on some XGBoost/feature-selection
+    # combinations and fall into the slow, unseeded KernelExplainer fallback
+    # below even when TreeExplainer would otherwise have worked fine.
     try:
-        explainer = shap.TreeExplainer(model, check_additivity=False)
-        shap_values = explainer.shap_values(X_test_selected)
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_test_selected, check_additivity=False)
     except Exception as e:
         logger.warning(f"TreeExplainer failed: {e}. Using KernelExplainer as fallback.")
-        # Fallback: use KernelExplainer (slower but more robust)
-        explainer = shap.KernelExplainer(model.predict_proba, shap.sample(X_test_selected, 50))
+        # Fallback: use KernelExplainer (slower but more robust). Seed the
+        # background sample explicitly so this fallback path is
+        # reproducible across runs (shap.sample's default RNG is otherwise
+        # unseeded).
+        background = shap.sample(X_test_selected, 50, random_state=0)
+        explainer = shap.KernelExplainer(model.predict_proba, background)
         shap_values = explainer.shap_values(X_test_selected)
         # KernelExplainer returns values for each class; we want class 0 (Dementia)
         if isinstance(shap_values, list):

@@ -1,6 +1,6 @@
 # BERT-Family Models for Dementia Risk Prediction
 
-This directory contains clean, reproducible implementations of all BERT-based methods from the paper "Predicting Dementia Risk Using Longitudinal Electronic Health Records Data" (Biggart & Fogel et al., NeurIPS 2025 TS4H Workshop).
+This directory contains clean, reproducible implementations of all BERT-based methods from the paper "Predicting Dementia Risk Using Longitudinal Electronic Health Records Data" (Biggart, Fogel, and Barnaghi, NeurIPS 2025 Workshop on Time Series for Health (TS4H)).
 
 ## Scripts Overview
 
@@ -17,10 +17,12 @@ This directory contains clean, reproducible implementations of all BERT-based me
 
 ### Paper Methods
 
-#### 1. **`multimodal_classifier.py`** — BioClinicalBERT + MLP (HEADLINE PAPER METHOD)
+#### 1. **`multimodal_classifier.py`** — BioClinicalBERT + MLP
 
-**Paper Reference:** "Multimodal BioClinical BERT+MLP" (Table 1, NeurIPS 2025 TS4H poster)  
-**Published Table 1 Results (pre-stratification, real UKB data, n=9,537 sex-matched):** F1=0.704, Sensitivity=0.694, Specificity=0.714, J=0.408, AUCROC=0.776 — verified directly against the poster PDF (`../../NeurIPS_poster.pdf`).
+Note: the paper's headline method is the star-graph GNN in `gnn/` (see repository root README); this multimodal BERT+MLP model is one of the paper's other reported Table 1 methods, not the headline method.
+
+**Paper Reference:** "Multimodal BioClinical BERT+MLP" (Table 1, NeurIPS 2025 TS4H workshop paper)  
+**Published Table 1 Results (pre-stratification, real UKB data, n=9,537 sex-matched):** F1=0.704, Sensitivity=0.694, Specificity=0.714, J=0.408, AUCROC=0.776.
 **Implementation:** Uses a separate `MultiModalDementiaClassifier` with its own age/sex/PRS MLP branch, concatenated with the BioClinicalBERT [CLS] embedding — see Architecture below.
 
 **Architecture:**
@@ -31,7 +33,7 @@ This directory contains clean, reproducible implementations of all BERT-based me
 **Train Config:**
 - Model: `emilyalsentzer/Bio_ClinicalBERT`
 - LR: 2e-5 (Adam), Epochs: 50, Batch size: 16
-- Split: 60/13.5/10 train/val/test
+- Split: 70/10/20 train/val/test (canonical stratified split from `common/data_split.py`, shared with `gnn/` and `baselines/`)
 - Optimizer: Adam, Loss: CrossEntropyLoss
 - Early stopping: monitors validation loss
 
@@ -48,8 +50,8 @@ python multimodal_classifier.py --data-path /path/to/five.csv --epochs 50
 
 #### 2. **`text_only_classifier.py`** — BioClinicalBERT Pure (TEXT-ONLY BASELINE)
 
-**Paper Reference:** "BioClinical BERT pure" (Table 1, NeurIPS 2025 TS4H poster)  
-**Published Table 1 Results (pre-stratification, real UKB data, n=9,537 sex-matched):** F1=0.707, Sensitivity=0.726, Specificity=0.670, J=0.396, AUCROC=0.767 — verified directly against the poster PDF.
+**Paper Reference:** "BioClinical BERT pure" (Table 1, NeurIPS 2025 TS4H workshop paper)  
+**Published Table 1 Results (pre-stratification, real UKB data, n=9,537 sex-matched):** F1=0.707, Sensitivity=0.726, Specificity=0.670, J=0.396, AUCROC=0.767.
 **Implementation:** Loads `AutoModelForSequenceClassification.from_pretrained("emilyalsentzer/Bio_ClinicalBERT", num_labels=2)` directly on the text sequence (no separate structured-feature MLP) — this is the "BioClinical BERT pure" method in Table 1, not a duplicate of the multimodal method.
 
 **Architecture:**
@@ -60,7 +62,7 @@ python multimodal_classifier.py --data-path /path/to/five.csv --epochs 50
 **Train Config:**
 - Model: `emilyalsentzer/Bio_ClinicalBERT`
 - LR: 2e-6 (AdamW), Epochs: 20, Batch size: 16
-- Split: 60/13.5/10 train/val/test
+- Split: 70/10/20 train/val/test (canonical stratified split from `common/data_split.py`, shared with `gnn/` and `baselines/`)
 - Gradient clipping: max_norm=1.0
 - Scheduler: linear warmup with 0 warmup steps
 
@@ -213,13 +215,13 @@ To train on real UK Biobank data (access-controlled; not included):
    python multimodal_classifier.py --data-path /path/to/five.csv --epochs 50
    ```
 
-Expected real results (published Table 1, pre-stratification, verified against `../../NeurIPS_poster.pdf`):
+Expected real results (published Table 1, pre-stratification):
 - **Multimodal BioClinicalBERT+MLP:** F1=0.704, Sens=0.694, Spec=0.714, AUC=0.776
 - **Text-Only BioClinicalBERT ("BioClinical BERT pure"):** F1=0.707, Sens=0.726, Spec=0.670, AUC=0.767
 - **No-Temporal ablation:** Accuracy=0.6971 (not a Table 1 row, no F1/AUC recorded)
 - **RoBERTa ablation:** Accuracy=0.6761 (not a Table 1 row, no F1/AUC recorded)
 
-Note: actual performance depends on real data size, cohort composition, and exact preprocessing/seed; the two headline rows are the published paper numbers, while the two ablations only ever had accuracy/sensitivity/specificity recorded.
+Note: actual performance depends on real data size, cohort composition, and exact preprocessing/seed; the F1/Sens/Spec/AUC rows above are the published paper numbers for these two BERT-family methods (not the paper's headline method -- that is the GNN in `gnn/`, see repository root README), while the two ablations only ever had accuracy/sensitivity/specificity recorded.
 
 ---
 

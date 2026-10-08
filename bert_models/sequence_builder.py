@@ -52,10 +52,21 @@ def build_icd10_sequence(
     if include_demographics:
         sex = "Male" if row['Sex'] == 1 else "Female"
         age = int(row['Age'])
-        prs = row.get(
-            "Standard_PRS_for_alzheimer's_disease_(AD)",
-            row.get("PRS", 0.0)
-        )
+        # The raw CSV column is "Standard PRS for alzheimer's disease (AD)"
+        # (literal spaces and apostrophe -- see data_prep/SCHEMA.md). The
+        # previous lookup key here used underscores
+        # ("Standard_PRS_for_alzheimer's_disease_(AD)"), which never matches
+        # that column or the "PRS" fallback, so `prs` was always silently
+        # 0.0 for every patient's text sequence. Match the same two
+        # candidate column names multimodal_classifier.py already uses for
+        # its demographics MLP branch, so the value fed into the text
+        # sequence is the same one fed into the model elsewhere.
+        if "Standard PRS for alzheimer's disease (AD)" in row.index:
+            prs = row["Standard PRS for alzheimer's disease (AD)"]
+        elif "PRS" in row.index:
+            prs = row["PRS"]
+        else:
+            prs = 0.0
         parts.append(f"sex={sex}")
         parts.append(f"age={age}")
         parts.append(f"polygenic_risk_score={prs}")

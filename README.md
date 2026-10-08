@@ -50,7 +50,7 @@ reproducibility_package/
 ├── bert_models/                    <- 4 consolidated BERT-family scripts
 │   ├── sequence_builder.py
 │   ├── seed_utils.py               <- set_seed(): makes runs with the same --seed reproducible
-│   ├── multimodal_classifier.py    <- headline method
+│   ├── multimodal_classifier.py    <- BERT+MLP (ICD text + clinical features); see note below
 │   ├── text_only_classifier.py     <- "BioClinical BERT pure"
 │   ├── bioclinical_no_temporal.py  <- ablation
 │   └── roberta_classifier.py       <- ablation
@@ -233,6 +233,8 @@ Sensitivity = recall for the Dementia class (label 0); Specificity = recall for 
 If you use this code, please cite:
 
 > Biggart, I., Fogel, A., Barnaghi, P. "Predicting Dementia Risk Using Longitudinal Electronic Health Records Data." NeurIPS 2025 Workshop on Time Series for Health (TS4H). https://openreview.net/forum?id=2FfRHgVSx3
+
+A machine-readable citation (for GitHub's "Cite this repository" button and tools like `cffconvert`) is in [`CITATION.cff`](./CITATION.cff) at the repository root.
 
 ## Contact
 

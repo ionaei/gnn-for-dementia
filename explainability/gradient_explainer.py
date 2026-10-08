@@ -2,13 +2,39 @@
 Gradient-based explainer for GNN models predicting dementia risk from EHR graphs.
 
 Explanation method: Vanilla gradient wrt node features and edge attributes.
-Attribution: sum of feature gradients per node, per edge.
+Attribution: sum of |feature gradient| per node, per edge (see `_abs_sum`
+below) -- NOT a plain signed sum. A signed sum lets positive and negative
+per-feature gradients cancel out, so a node the model is highly sensitive
+to in both directions could be reported as unimportant; the magnitude
+(what "importance" means here) is only recoverable from the absolute
+values. Callers who specifically want signed attribution can still pass
+a different `aggregate_node_imp` to `explain_graph`/`explain_batch`.
 """
 
 import torch
 import torch.nn.functional as F
 from typing import Optional, Callable, Dict, List, Tuple
 import warnings
+
+
+def _abs_sum(grad: torch.Tensor, dim: int) -> torch.Tensor:
+    """
+    Default per-node/per-edge gradient aggregation: sum of *absolute*
+    gradient values along `dim`.
+
+    This explainer used to default to plain `torch.sum`, which sums the
+    raw signed gradients across a node's (or edge's) feature dimension.
+    A node whose features have gradients of mixed sign -- e.g. [+0.8,
+    -0.8] -- would sum to ~0 and be reported as unimportant even though
+    the model is highly sensitive to both of its features; the signs
+    cancel before magnitude is ever considered. Summing `grad.abs()`
+    instead reports the total magnitude of influence per node/edge,
+    which is what "importance" is supposed to mean here, and avoids
+    this false-negative cancellation. (Callers can still pass their own
+    `aggregate_node_imp` -- e.g. a signed sum -- if they specifically
+    want signed attributions rather than magnitude.)
+    """
+    return grad.abs().sum(dim=dim)
 
 
 class Explanation:
@@ -103,7 +129,7 @@ class GradientExplainer:
     def explain_graph(self,
                      data: object,
                      target_class: Optional[int] = None,
-                     aggregate_node_imp: Callable = torch.sum) -> Explanation:
+                     aggregate_node_imp: Callable = _abs_sum) -> Explanation:
         """
         Generate explanation for a single graph.
 
@@ -213,7 +239,7 @@ class GradientExplainer:
     def explain_batch(self,
                      data_list: List[object],
                      target_classes: Optional[List[int]] = None,
-                     aggregate_node_imp: Callable = torch.sum) -> List[Explanation]:
+                     aggregate_node_imp: Callable = _abs_sum) -> List[Explanation]:
         """
         Generate explanations for multiple graphs.
 

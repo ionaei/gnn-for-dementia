@@ -1,8 +1,13 @@
 # BERT-family models for dementia risk prediction
 # Install with: pip install -r requirements.txt
+#
+# These are the same exact pins as the repository-root requirements.txt
+# (see the PINNING POLICY note there) for the packages this directory
+# actually imports -- kept here too so bert_models/ can be installed
+# standalone without pulling in the GNN/baselines-only dependencies.
 
 # Core ML/data science
-torch>=2.0.0,<2.5.0
+torch==2.1.2
 # IMPORTANT (verified empirically in this package's dev environment, which
 # is pinned to torch==2.1.2 for aarch64/disk-space reasons -- see
 # gnn/train.py's module docstring): transformers>=4.41 and all of
@@ -15,13 +20,14 @@ torch>=2.0.0,<2.5.0
 # release confirmed to import and load checkpoints cleanly against
 # torch==2.1.2 in this environment. If you upgrade torch to >=2.5, the
 # transformers version ceiling below can be lifted too.
-transformers>=4.30.0,<=4.40.0
-scikit-learn>=1.3.0
-pandas>=2.0.0
-numpy>=1.24.0
+transformers==4.40.0
+scikit-learn==1.7.2
+pandas==2.3.3
+numpy==1.26.4
 
-# Optional: experiment tracking
+# Optional: experiment tracking. Not exercised by this package's own test
+# environment, so left as a minimum-version range rather than an exact pin.
 wandb>=0.15.0
 
-# Optional: development/testing
+# Optional: development/testing. Same rationale as wandb above.
 pytest>=7.0.0

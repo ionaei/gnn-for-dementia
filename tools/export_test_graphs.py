@@ -75,6 +75,19 @@ def main():
     if args.limit is not None:
         graphs = graphs[: args.limit]
 
+    # Attach each graph's own diagnosis-name lookup (`codes[code_id]` for
+    # every id in `graph.code_ids`, in the same order) directly onto the
+    # pickled Data object. Without this, `explain.py` -- which only ever
+    # loads back a bare List[Data] with no access to the `codes` vocab used
+    # to build it -- can report *which graph node* (e.g. node_idx=3) was
+    # important, but not *which diagnosis* that node actually represents,
+    # making every explanation output uninterpretable without separately
+    # re-deriving the vocab out-of-band with the exact same --data-path/
+    # --seed. Node 0 is always the patient (see graph_construction.
+    # row_to_graph); nodes 1..N correspond 1:1 with code_ids in order.
+    for g in graphs:
+        g.code_names = [codes[cid] for cid in g.code_ids.tolist()]
+
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "wb") as f:

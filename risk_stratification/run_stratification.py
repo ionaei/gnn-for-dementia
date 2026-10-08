@@ -1,6 +1,11 @@
 """
-End-to-end CLI: load a trained GNN checkpoint, evaluate it on the test set,
-and run the traffic-light risk stratification analysis.
+End-to-end CLI: load a trained GNN checkpoint, evaluate it on both the
+validation and test sets, and run the traffic-light risk stratification
+analysis with the Youden's J threshold t* and confidence-band half-width w
+tuned on validation only and reported on test only (see
+`traffic_light_stratification.stratify`'s docstring for why -- tuning and
+reporting on the same set leaks test-set information into the headline
+numbers).
 
 This wires together `gnn/evaluate_best_run.py` (model loading + evaluation)
 and `traffic_light_stratification.py` (the Youden's J / confidence-band
@@ -80,25 +85,14 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    df_train, df_val, df_test = load_and_split(args.data_path)
-    codes, code2idx, desc_to_time, code_texts = build_code_vocab(df_train)
-    test_graphs = build_graphs(df_test, codes, code2idx, desc_to_time)
-
-    state = None  # loaded here for --local-checkpoint; loaded further down for the WandB path
+    # Determine the checkpoint path (and, for the WandB path, that run's own
+    # config as a fallback for legacy checkpoints) *before* loading/splitting
+    # data, since the checkpoint's embedded `seed` -- not always 42 -- picks
+    # which held-out val/test patients this script must use. This mirrors the
+    # same fix already applied to gnn/evaluate_best_run.py.
+    wandb_cfg = {}
     if args.local_checkpoint:
         ckpt_path = args.local_checkpoint
-        state, ckpt_cfg = load_checkpoint(
-            ckpt_path, device=device,
-            overrides=dict(hidden=args.hidden, emb_dim=args.emb_dim, dropout=args.dropout,
-                           pool=args.pool, head=args.head),
-        )
-        cfg = dict(
-            hidden=ckpt_cfg.get("hidden", 128), dropout=ckpt_cfg.get("dropout", 0.1),
-            train_eps=ckpt_cfg.get("train_eps", False), pool=ckpt_cfg.get("pool", "mean"),
-            trainable=ckpt_cfg.get("trainable", True),
-        )
-        emb_dim = ckpt_cfg.get("emb_dim", 128)
-        head = ckpt_cfg.get("head", "linear")
     else:
         import wandb
 
@@ -108,35 +102,69 @@ def main():
         if best_run is None:
             best_run = min(runs, key=lambda r: r.summary.get("best_val_loss", float("inf")))
         print("Best run:", best_run.id, "val_loss=", best_run.summary.get("best_val_loss"))
-        cfg = dict(best_run.config)
-        if args.pool is not None:
-            cfg["pool"] = args.pool
-        elif "pool" not in cfg:
-            import warnings
-
-            cfg["pool"] = "mean"
-            warnings.warn(
-                f"WandB run {best_run.id}'s config does not record 'pool' and --pool was not "
-                "given; defaulting to 'mean'. Pass --pool explicitly if you know the run's config."
-            )
-        emb_dim = cfg.get("EMB_DIM", cfg.get("emb_dim", 128))
-        head = args.head or "linear"
+        wandb_cfg = dict(best_run.config)
         ckpt_path = f"{args.checkpoint_dir}/best_{best_run.id}.pt"
+
+    state, ckpt_cfg = load_checkpoint(
+        ckpt_path, device=device,
+        overrides=dict(hidden=args.hidden, emb_dim=args.emb_dim, dropout=args.dropout,
+                       pool=args.pool, head=args.head),
+    )
+
+    # The checkpoint's own embedded config (already merged with any CLI
+    # overrides by load_checkpoint() above) is the primary source of truth;
+    # the WandB run's config is only a fallback for legacy checkpoints saved
+    # without one; hardcoded literals are the last resort. Same precedence
+    # as gnn/evaluate_best_run.py.
+    cfg = dict(
+        hidden=ckpt_cfg.get("hidden", wandb_cfg.get("hidden", 128)),
+        dropout=ckpt_cfg.get("dropout", wandb_cfg.get("dropout", 0.1)),
+        train_eps=ckpt_cfg.get("train_eps", wandb_cfg.get("train_eps", False)),
+        pool=ckpt_cfg.get("pool", wandb_cfg.get("pool", "mean")),
+        trainable=ckpt_cfg.get("trainable", wandb_cfg.get("trainable", True)),
+    )
+    if "pool" not in ckpt_cfg and "pool" not in wandb_cfg and args.pool is None:
+        import warnings
+
+        warnings.warn(
+            "Neither the checkpoint nor the WandB run config records 'pool' and --pool was not "
+            "given; defaulting to 'mean'. Pass --pool explicitly if you know the run's config. "
+            "NOTE: this script used to default --pool to 'add' here while gnn/train.py and "
+            "evaluate_best_run.py defaulted to 'mean' -- that mismatch is exactly the "
+            "silent-wrong-predictions bug this checkpoint-config-embedding fix closes."
+        )
+    emb_dim = ckpt_cfg.get("emb_dim", wandb_cfg.get("EMB_DIM", wandb_cfg.get("emb_dim", 128)))
+    head = ckpt_cfg.get("head", args.head or "linear")
+    seed = ckpt_cfg.get("seed", 42)
+
+    # Tuning (t*, w) needs a validation set distinct from the test set that
+    # gets scored at those fixed values -- see traffic_light_stratification.
+    # stratify()'s docstring for why. Build graphs/loaders for both splits.
+    df_train, df_val, df_test = load_and_split(args.data_path, seed=seed)
+    codes, code2idx, desc_to_time, code_texts = build_code_vocab(df_train)
+    val_graphs = build_graphs(df_val, codes, code2idx, desc_to_time)
+    test_graphs = build_graphs(df_test, codes, code2idx, desc_to_time)
 
     code_emb_matrix = make_random_code_embeddings(len(codes), emb_dim)
     model = build_model_from_cfg(cfg, code_emb_matrix, edge_dim=3, out_classes=2, head=head).to(device)
 
-    if state is None:
-        # WandB path: state wasn't already loaded via load_checkpoint() above.
-        state, _ = load_checkpoint(ckpt_path, device=device)
-    model.load_state_dict(state, strict=False)
+    # strict=True: the architecture above is rebuilt entirely from the
+    # checkpoint's own config, so a key/shape mismatch here means something
+    # is genuinely wrong and should raise loudly rather than silently loading
+    # a partial/mismatched model (same reasoning as evaluate_best_run.py).
+    model.load_state_dict(state, strict=True)
 
+    val_loader = DataLoader(val_graphs, batch_size=args.batch_size)
     test_loader = DataLoader(test_graphs, batch_size=args.batch_size)
-    metrics, probs_control, labels = evaluate(model, test_loader, device)
-    print("Test metrics:", metrics)
+    val_metrics, val_probs_control, val_labels = evaluate(model, val_loader, device)
+    test_metrics, test_probs_control, test_labels = evaluate(model, test_loader, device)
+    print("Val metrics:", val_metrics)
+    print("Test metrics:", test_metrics)
 
-    report = stratify(labels, probs_control, max_w=args.max_w, step=args.step, min_coverage=args.min_coverage)
-    report["test_metrics"] = metrics
+    report = stratify(val_labels, val_probs_control, test_labels, test_probs_control,
+                       max_w=args.max_w, step=args.step, min_coverage=args.min_coverage)
+    report["val_metrics"] = val_metrics
+    report["test_metrics"] = test_metrics
 
     with open(args.out, "w") as f:
         json.dump(report, f, indent=2, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o))

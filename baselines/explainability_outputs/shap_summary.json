@@ -2,11 +2,11 @@
   "rf": {
     "n_features_explained": 64,
     "top_feature": "Age",
-    "top_feature_shap": 0.0868268013890458
+    "top_feature_shap": 0.060817916510682864
   },
   "xgb": {
     "n_features_explained": 64,
     "top_feature": "Age",
-    "top_feature_shap": 0.14608253484663908
+    "top_feature_shap": 0.10431975643128899
   }
 }

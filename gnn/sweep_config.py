@@ -2,6 +2,19 @@
 WandB Bayesian hyperparameter sweep configuration for the GNN.
 
 Matches the search space reported in the paper's Appendix A2.
+
+Note on `--head`/`--embedding-source`: these select which GNN *variant* is
+being trained (GNN+RV vs. GNN+MLP head; random vs. BioClinical code
+embeddings -- see `train.py`'s `train_one_config` docstring), not a
+continuous hyperparameter to Bayesian-optimize over. They are deliberately
+left out of `SWEEP_CONFIG["parameters"]` so the search space here stays
+exactly the one in Appendix A2. Run a separate `--sweep` invocation per
+variant, e.g. `python train.py --sweep --head mlp` or
+`python train.py --sweep --embedding-source bioclinical`; `train.py`'s
+`_sweep_entry()` fixes `head`/`embedding_source` from those CLI flags for
+every trial in that sweep (falling back to `wandb.config`'s own
+`head`/`embedding_source` keys only if a sweep config is ever extended to
+include them directly).
 """
 
 SWEEP_CONFIG = {

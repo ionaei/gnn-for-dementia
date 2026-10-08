@@ -115,41 +115,88 @@ def pick_w_by_max_J(y, p_dem, t, max_w=0.25, step=0.005, min_coverage=0.0):
     return best
 
 
-def stratify(labels, probs_control, max_w=0.30, step=0.002, min_coverage=0.50):
+def stratify(val_labels, val_probs_control, test_labels, test_probs_control,
+             max_w=0.30, step=0.002, min_coverage=0.50):
     """
-    End-to-end convenience wrapper: given test-set labels and P(control) from
-    the model, computes the Youden threshold, the baseline (single-threshold)
-    metrics, and the traffic-light (confident-only) metrics, and prints the
-    dementia-probability and control-probability views of both threshold
-    schemes.
+    End-to-end convenience wrapper, with threshold *tuning* and final
+    *reporting* on deliberately separate data.
+
+    Why two sets, not one: an earlier version of this function (and of
+    `run_stratification.py`, which only ever built a test set) took a
+    single `(labels, probs_control)` pair, searched it for both the
+    Youden-J threshold `t*` (`youden_threshold_for_dementia`) AND the
+    confidence-band half-width `w` that maximizes J among confident
+    predictions (`pick_w_by_max_J`), and then reported `baseline`/
+    `traffic_light` metrics computed on that *same* data. Tuning two free
+    parameters (t*, w) to maximize a metric on a set and then reporting
+    that same metric on that same set is standard train/test leakage -- it
+    optimistically biases the reported J (and everything derived from it:
+    sensitivity, specificity, coverage) relative to what the traffic-light
+    scheme would actually achieve on unseen patients.
+
+    The fix: `t*` and `w` are now selected using ONLY the validation set
+    (`val_labels`/`val_probs_control`); those fixed values are then
+    applied -- with no further search -- to the test set
+    (`test_labels`/`test_probs_control`) to produce the metrics actually
+    reported. This mirrors how every other model in this package already
+    uses val (for early stopping / model selection) vs. test (for the
+    number that gets reported) -- risk stratification just has two
+    additional tuned parameters (t*, w) that need the same separation.
 
     Args:
-        labels (array-like): true labels, 0=Dementia, 1=Control.
-        probs_control (array-like): model's predicted P(control) (i.e. the
-            softmax probability of class 1) per patient, as returned by
-            `gnn/evaluate_best_run.evaluate`.
-        max_w, step, min_coverage: passed to `pick_w_by_max_J`.
+        val_labels, val_probs_control: validation-set labels (0=Dementia,
+            1=Control) and the model's P(control) on that set -- used only
+            to pick t* and w, never scored themselves as the headline
+            numbers.
+        test_labels, test_probs_control: held-out test-set labels and
+            P(control) -- scored at the (val-tuned) t*/w to produce
+            `baseline` and `traffic_light` below.
+        max_w, step, min_coverage: passed to `pick_w_by_max_J` (run on the
+            validation set only).
 
     Returns:
-        dict with keys: t_star, youden_info, baseline, traffic_light.
+        dict with keys: t_star, w, youden_info, val_tuned, baseline,
+        traffic_light. `baseline`/`traffic_light` are test-set metrics;
+        `youden_info`/`val_tuned` describe how t*/w performed on the
+        validation set they were chosen from (expect these to look
+        slightly better than the test-set numbers -- that gap is exactly
+        the leakage this split stops from being reported as the headline
+        number).
     """
-    labels = np.asarray(labels)
-    probs_control = np.asarray(probs_control)
-    p_dem = 1.0 - probs_control
+    val_labels = np.asarray(val_labels)
+    val_probs_control = np.asarray(val_probs_control)
+    test_labels = np.asarray(test_labels)
+    test_probs_control = np.asarray(test_probs_control)
 
-    t_star, info = youden_threshold_for_dementia(labels, p_dem)
-    baseline = single_threshold_metrics(labels, p_dem, t_star)
-    traffic = pick_w_by_max_J(labels, p_dem, t_star, max_w=max_w, step=step, min_coverage=min_coverage)
+    p_dem_val = 1.0 - val_probs_control
+    p_dem_test = 1.0 - test_probs_control
 
-    print("Youden t*:", t_star, info)
-    print("Baseline (single threshold, everyone classified):", baseline)
-    print("Traffic-light (confident-only):", traffic)
+    # Tune on validation only.
+    t_star, info = youden_threshold_for_dementia(val_labels, p_dem_val)
+    val_tuned = pick_w_by_max_J(val_labels, p_dem_val, t_star, max_w=max_w, step=step, min_coverage=min_coverage)
+    w = val_tuned["w"] if val_tuned is not None else 0.0
+    if val_tuned is None:
+        print(
+            f"WARNING: no confidence-band width in [0, {max_w}] reached "
+            f"min_coverage={min_coverage} on the validation set; falling "
+            "back to w=0 (every patient classified, no AMBER band)."
+        )
 
-    if traffic is not None:
+    # Report on test only, at the already-fixed (t_star, w) -- no search here.
+    baseline = single_threshold_metrics(test_labels, p_dem_test, t_star)
+    traffic = confident_metrics(test_labels, p_dem_test, t_star, w)
+
+    print("Youden t* (tuned on val):", t_star, info)
+    print("w (tuned on val):", w, "-- val-set traffic-light metrics at this w:", val_tuned)
+    print("Baseline (single threshold, everyone classified, TEST set):", baseline)
+    print("Traffic-light (confident-only, TEST set):", traffic)
+
+    if traffic is not None and traffic.get("n", 0) > 0:
         tl, tu = traffic["tl"], traffic["tu"]
         print(f"\nBaseline threshold on P(dementia): t* = {t_star:.3f}")
         print(f"Baseline threshold on P(control):  1 - t* = {1 - t_star:.3f}")
         print(f"Traffic-light thresholds on P(dementia): tl = {tl:.3f}, tu = {tu:.3f}")
         print(f"Traffic-light thresholds on P(control):  green >= {1 - tl:.3f}, red <= {1 - tu:.3f}")
 
-    return dict(t_star=t_star, youden_info=info, baseline=baseline, traffic_light=traffic)
+    return dict(t_star=t_star, w=w, youden_info=info, val_tuned=val_tuned,
+                baseline=baseline, traffic_light=traffic)

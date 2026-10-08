@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper below."
+title: "Reproducibility Package: Predicting Dementia Risk Using Longitudinal Electronic Health Records Data"
+type: software
+authors:
+  - family-names: Biggart
+    given-names: Iona
+    affiliation: "Imperial College London / UK Dementia Research Institute"
+  - family-names: Fogel
+    given-names: Antigone
+    affiliation: "Imperial College London / UK Dementia Research Institute"
+  - family-names: Barnaghi
+    given-names: Payam
+    affiliation: "Imperial College London / UK Dementia Research Institute"
+preferred-citation:
+  type: conference-paper
+  title: "Predicting Dementia Risk Using Longitudinal Electronic Health Records Data"
+  authors:
+    - family-names: Biggart
+      given-names: Iona
+    - family-names: Fogel
+      given-names: Antigone
+    - family-names: Barnaghi
+      given-names: Payam
+  conference:
+    name: "NeurIPS 2025 Workshop on Time Series for Health (TS4H)"
+  year: 2025
+  url: "https://openreview.net/forum?id=2FfRHgVSx3"
+url: "https://openreview.net/forum?id=2FfRHgVSx3"
+repository-code: "https://github.com/ionaei/gnn-for-dementia"
+license: MIT

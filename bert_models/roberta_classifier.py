@@ -27,14 +27,14 @@ Train Config:
 
 import argparse
 import os
+import sys
+from pathlib import Path
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
 from torch.nn.utils import clip_grad_norm_
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, get_linear_schedule_with_warmup
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, recall_score, f1_score, roc_auc_score
 import pandas as pd
 
 try:
@@ -45,6 +45,13 @@ except ImportError:
 
 from sequence_builder import apply_icd10_sequences
 from seed_utils import set_seed
+
+# Canonical 70/10/20 split (see common/data_split.py's module docstring)
+# shared with gnn/ and baselines/, replacing a previously independent,
+# differently-sized, non-overlapping local split.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "common"))
+from data_split import add_label_column, split_dataframe  # noqa: E402
+from metrics import compute_metrics  # noqa: E402
 
 
 class TextOnlyDementiaDataset(Dataset):
@@ -65,22 +72,16 @@ class TextOnlyDementiaDataset(Dataset):
         }
 
 
-def prepare_data(df, model_name: str = "roberta-large"):
+def prepare_data(df, model_name: str = "roberta-large", seed=42):
     """Prepare tokenized inputs for RoBERTa (or any HuggingFace model)."""
     # Build ICD-10 sequences with demographics and temporal info
     df = apply_icd10_sequences(df, include_temporal=True, include_demographics=True)
 
     # Label mapping
-    label_map = {"Dementia": 0, "Control": 1}
-    df["label"] = df["Class"].map(label_map)
+    df = add_label_column(df)
 
-    # Train/val/test split: 60/13.5/10
-    df_train_val, df_test = train_test_split(
-        df, test_size=0.1, stratify=df["label"], random_state=42
-    )
-    df_train, df_val = train_test_split(
-        df_train_val, test_size=0.15, stratify=df_train_val["label"], random_state=42
-    )
+    # Canonical 70/10/20 stratified split, shared with gnn/ and baselines/.
+    df_train, df_val, df_test = split_dataframe(df, seed=seed)
 
     # Tokenize sequences using the specified model's tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
@@ -150,7 +151,7 @@ def train_and_evaluate(
 
     # Prepare data
     (tokenized_train, tokenized_val, tokenized_test,
-     labels_train, labels_val, labels_test) = prepare_data(df, model_name=model_name)
+     labels_train, labels_val, labels_test) = prepare_data(df, model_name=model_name, seed=seed)
 
     # Create datasets and loaders
     train_dataset = TextOnlyDementiaDataset(
@@ -300,12 +301,11 @@ def train_and_evaluate(
             all_labels.extend(labels.tolist())
             all_probs.extend(probs[:, 1].cpu().tolist())
 
-    # Compute metrics
-    accuracy = accuracy_score(all_labels, all_preds)
-    sensitivity = recall_score(all_labels, all_preds, pos_label=0)
-    specificity = recall_score(all_labels, all_preds, pos_label=1)
-    f1 = f1_score(all_labels, all_preds)
-    auc = roc_auc_score(all_labels, all_probs)
+    # Compute metrics using the package-wide convention (common/metrics.py).
+    m = compute_metrics(all_labels, all_preds, all_probs)
+    accuracy, sensitivity, specificity, f1, auc, auprc = (
+        m["accuracy"], m["sensitivity"], m["specificity"], m["f1"], m["auroc"], m["auprc"],
+    )
 
     print("\n" + "="*60)
     print(f"TEST RESULTS ({model_name})")
@@ -315,6 +315,7 @@ def train_and_evaluate(
     print(f"Specificity (Control recall):  {specificity:.4f}")
     print(f"F1 Score:   {f1:.4f}")
     print(f"AUCROC:     {auc:.4f}")
+    print(f"AUPRC:      {auprc:.4f}")
     print("="*60)
 
     if use_wandb:
@@ -324,6 +325,7 @@ def train_and_evaluate(
             "test/specificity": specificity,
             "test/f1": f1,
             "test/auc": auc,
+            "test/auprc": auprc,
         })
         wandb.finish()
 
@@ -367,8 +369,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--seed", type=int, default=42,
-        help="Random seed for model init / dropout / batch shuffling "
-             "(the train/val/test split is already fixed at random_state=42).",
+        help="Random seed for model init / dropout / batch shuffling, AND for "
+             "the canonical train/val/test split (common/data_split.py) -- "
+             "pass the same --seed used to train a GNN/baseline checkpoint "
+             "if you want this run scored on the same held-out patients.",
     )
 
     args = parser.parse_args()
